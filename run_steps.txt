@@ -1,0 +1,7 @@
+cd "d:\SEM 5 - PROJECT\CP - IoT\SMART ENERGY THEFT DETECTION\backend"
+uvicorn main:app --reload --port 8000
+
+
+
+cd "d:\SEM 5 - PROJECT\CP - IoT\SMART ENERGY THEFT DETECTION\frontend"
+npm run dev
