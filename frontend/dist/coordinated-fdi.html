@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stealth Coordinated FDI Simulation</title>
+<style>
+:root{--bg:#070b16;--pn:#0e1528;--ln:#1d2a4a;--tx:#dbe6ff;--mu:#8497c0;--cy:#22e6ff;--bl:#4d8dff;--pu:#a66bff;--or:#ff9a3c;--rd:#ff3d5a;--gn:#35f0a0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 "Segoe UI",system-ui,sans-serif}
+#app{background:radial-gradient(1200px 600px at 20% -10%,#14204a 0,var(--bg) 60%);min-height:100vh;display:flex;flex-direction:column;height:100vh}
+header{padding:10px 18px;border-bottom:1px solid var(--ln);display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+h1{font-size:20px;margin:0;color:var(--cy);letter-spacing:.3px}
+header small{color:var(--mu);flex:1;min-width:220px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--ln);background:#0a1122}
+button,select{background:#13204a;color:var(--tx);border:1px solid var(--bl);border-radius:6px;padding:8px 12px;font:inherit;cursor:pointer}
+button:hover{background:#1b2e66}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--cy)}
+.b-n{border-color:var(--gn)}.b-s{border-color:var(--or)}.b-c{border-color:var(--rd)}.b-x{border-color:var(--pu)}
+label{color:var(--mu);font-size:13px;display:flex;align-items:center;gap:6px}
+input[type=range]{width:110px;accent-color:var(--cy)}
+.sp{flex:1}
+#vp{flex:1;overflow:auto;padding:14px 18px}
+#stage{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;min-width:1000px}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:12px 14px}
+.pn h2{font-size:15px;margin:0 0 8px;color:var(--bl)}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c4{grid-column:span 4}.c6{grid-column:span 6}
+.story{display:flex;gap:8px;flex-wrap:wrap}
+.st{flex:1;min-width:120px;border:1px solid var(--ln);border-radius:8px;padding:7px 9px;color:var(--mu);font-size:13px}
+.st.done{border-color:var(--bl);color:var(--tx)}.st.now{border-color:var(--cy);background:#0f2a3d;color:#fff;box-shadow:0 0 12px #22e6ff55}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.chip{border:1px solid var(--ln);border-radius:8px;padding:8px 10px}
+.chip b{display:block;font-size:36px;line-height:1.2}.chip span{color:var(--mu);font-size:15px}
+.ok{color:var(--gn)}.bad{color:var(--rd)}.wr{color:var(--or)}.na{color:var(--mu)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--ln)}th:first-child,td:first-child{text-align:left}
+th{color:var(--mu);font-weight:600}tr.tg td{background:#2a1626}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.card{border:1px solid var(--ln);border-radius:8px;padding:8px 10px}
+.card .k{color:var(--mu);font-size:13px}.card .a{color:var(--cy);font-size:20px}.card .r{font-size:20px;color:var(--or)}
+.card .r.same{color:var(--gn)}
+.eq{margin-top:8px;font-family:Consolas,monospace;font-size:14px;color:var(--mu)}
+canvas{width:100%;height:300px;display:block}
+#tl{max-height:230px;overflow:auto;font-size:13.5px}
+.ev{border-left:3px solid var(--bl);padding:4px 8px;margin-bottom:6px;background:#0b1326}
+.ev.w{border-color:var(--or)}.ev.c{border-color:var(--rd);background:#2a1020}.ev.g{border-color:var(--gn)}.ev time{color:var(--mu);margin-right:6px}
+.ex p{margin:0 0 8px;color:#c4d1f2}.ex b{color:var(--cy)}
+svg text{font-family:"Segoe UI",sans-serif}
+.flow{stroke-dasharray:9 9;animation:fl 0.9s linear infinite}@keyframes fl{to{stroke-dashoffset:-18}}
+.alertbar{display:none;margin-bottom:12px;padding:10px 14px;border:2px solid var(--rd);border-radius:10px;background:#3a0f1c;color:#fff;font-weight:600;animation:bl 1s ease-in-out infinite}
+@keyframes bl{50%{box-shadow:0 0 22px #ff3d5a}}
+@media (prefers-reduced-motion:reduce){.flow,.alertbar{animation:none}}
+</style></head>
+<body><div id="app">
+<header><h1>Stealthy Coordinated False Data Injection Simulator</h1>
+<small>IoT smart energy theft monitoring: deterministic educational simulation (no machine learning, no attacker attribution)</small></header>
+<div class="bar">
+<button class="b-n" id="bN">Start normal simulation</button>
+<button class="b-s" id="bS">Launch simple FDI</button>
+<button class="b-c" id="bC">Launch coordinated stealth FDI</button>
+<button class="b-x" id="bX">Stop attack</button>
+<button id="bR">Reset simulation</button>
+<label>Target meter <select id="tg"></select></label>
+<label>Manipulation <input type="range" id="mp" min="10" max="90" value="50"><b id="mpv">50%</b></label>
+<label>Feeder threshold <input type="range" id="th" min="2" max="15" value="6"><b id="thv">6%</b></label>
+<label>Consecutive ticks <input type="range" id="cn" min="2" max="8" value="3"><b id="cnv">3</b></label>
+<span class="sp"></span>
+<button id="zo" aria-label="Zoom out">Zoom −</button><button id="zr">Reset zoom</button><button id="zi" aria-label="Zoom in">Zoom +</button><button id="fs">Fullscreen</button>
+</div>
+<div id="vp"><div id="stage">
+<div class="pn c12"><div class="alertbar" id="alb"></div><h2>Attack storyline</h2><div class="story" id="story"></div><div id="cap" style="margin-top:12px;font-size:20px;line-height:1.4;color:#fff"></div></div>
+
+<div class="pn c12"><h2>Cyber-physical topology: power (cyan), telemetry packets (blue; orange/red when tampered)</h2>
+<svg id="svg" viewBox="0 0 1000 400" width="100%" role="img" aria-label="Grid topology with feeder, five smart meters, server, detection engine and attacker">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#ff3d5a"/></marker></defs>
+<g id="svgdyn"></g></svg></div>
+
+<div class="pn c12"><h2>Detection layer status</h2>
+<div class="chips" style="grid-template-columns:repeat(3,1fr)">
+<div class="chip"><span>Layer 1: physics consistency</span><b id="l1">Idle</b></div>
+<div class="chip"><span>Layer 2: feeder anomaly</span><b id="l2">Idle</b></div>
+<div class="chip"><span>Feeder imbalance</span><b id="imb">0.0%</b></div>
+<div class="chip"><span>Consecutive ticks over limit</span><b id="cc">0 / 3</b></div>
+<div class="chip"><span>Feeder measured</span><b id="fm">0 W</b></div>
+<div class="chip"><span>Sum of reported</span><b id="sr">0 W</b></div></div>
+<p class="na" style="font-size:12.5px;margin:10px 0 0">Normal imbalance is about 2% (line losses). Layer 2 flags an unexplained gap; it does not say which meter or which attack type caused it.</p></div>
+
+<div class="pn c12"><h2 id="dt">Target meter: actual vs reported</h2><div class="cards" id="cards"></div><div class="eq" id="eq"></div></div>
+
+<div class="pn c6"><h2>Power per meter: actual (cyan) vs reported (orange)</h2><canvas id="c5" width="700" height="300"></canvas></div>
+<div class="pn c6"><h2>Power balance: what the feeder delivers vs what the server sees</h2><canvas id="c6" width="700" height="300"></canvas></div>
+
+<div class="pn c12"><h2>All meters: actual vs reported readings and Layer 1 check</h2><table id="tb"></table></div>
+
+<div class="pn c6"><h2>Target current (A): actual vs reported</h2><canvas id="c1" width="700" height="300"></canvas></div>
+<div class="pn c6"><h2>Target active power (W): actual vs reported</h2><canvas id="c2" width="700" height="300"></canvas></div>
+<div class="pn c6"><h2>Feeder power vs total reported (W) over time</h2><canvas id="c3" width="700" height="300"></canvas></div>
+
+<div class="pn c6"><h2>Feeder imbalance (%) and threshold</h2><canvas id="c4" width="700" height="300"></canvas></div>
+<div class="pn c12"><h2>Security alert timeline</h2><div id="tl"></div></div>
+
+<div class="pn c12 ex"><h2>Why coordinated FDI is harder to detect</h2>
+<p><b>Simple FDI</b> lowers only reported active power P. Because the report still carries the original V, I and PF, the rule <b>P = V × I × PF</b> no longer holds and Layer 1 flags it immediately.</p>
+<p><b>Coordinated stealth FDI</b> lowers the reported current and then recomputes P from the reported V, I and PF. Every report is internally consistent, so Layer 1 passes. Example: actual 230 V × 10 A × 0.95 = 2185 W; reported 230 V × 5 A × 0.95 = 1092.5 W.</p>
+<p>The physical load is unchanged, so the independently measured feeder power still includes it. <b>Layer 2</b> compares that feeder measurement with the sum of reported consumer powers. When the gap exceeds the threshold for the configured number of consecutive ticks, a critical alert is raised. This shows <i>that</i> reported data cannot be trusted, not <i>which</i> meter or attack caused it; narrowing it down needs cross-meter analysis, sub-feeder measurements and field inspection.</p>
+<p class="na">This tool is a deterministic rule-based simulation with synthetic noise. It uses no machine learning and does not claim to identify attackers.</p></div>
+</div></div></div>
+
+<script>
+const N=5,BI=[10,6,8,12,5],BP=[.95,.92,.9,.97,.88],$=id=>document.getElementById(id),TOL=0.02,H=70;
+let S,timer=null,zoom=1;
+const f=(x,d=1)=>x.toFixed(d),rnd=a=>(Math.random()-.5)*2*a;
+function init(){
+ S={t:0,run:false,mode:'normal',tgt:+$('tg').value||0,m:[],hist:{ia:[],ir:[],pa:[],pr:[],fe:[],sr:[],im:[]},ev:[],cc:0,l1f:false,l2f:false,l1ever:false,reach:{1:1},seenSimple:false,seenCoord:false};
+ for(let i=0;i<N;i++)S.m.push({V:230,I:BI[i],pf:BP[i],P:230*BI[i]*BP[i],Vr:230,Ir:BI[i],pfr:BP[i],Pr:230*BI[i]*BP[i],kWh:0,kWhr:0,bad:false});
+ S.fe=0;S.sr=0;S.imb=0;$('tl').innerHTML='';$('alb').style.display='none';
+ log('Simulator ready. Press "Start normal simulation".','');draw();
+}
+function log(msg,cls){S.ev.push(1);const d=document.createElement('div');d.className='ev '+cls;d.innerHTML='<time>t='+S.t+'</time>'+msg;$('tl').prepend(d)}
+function tick(){
+ S.t++;const k=+$('mp').value/100,attack=S.mode!=='normal';let sa=0,sr=0,anyBad=false;
+ S.m.forEach((m,i)=>{
+  m.V=230+2.2*Math.sin(S.t/7+i)+rnd(.5);
+  m.I=BI[i]*(1+.08*Math.sin(S.t/5+i*1.3))+rnd(.08);
+  m.pf=BP[i]+.012*Math.sin(S.t/9+i)+rnd(.002);
+  m.P=m.V*m.I*m.pf;m.kWh+=m.P*10/3.6e6;
+  m.Vr=m.V;m.Ir=m.I;m.pfr=m.pf;m.Pr=m.P;
+  if(attack&&i===S.tgt){
+   if(S.mode==='simple'){m.Pr=m.P*(1-k)}
+   else{m.Ir=m.I*(1-k);m.Pr=m.Vr*m.Ir*m.pfr}
+  }
+  m.kWhr+=m.Pr*10/3.6e6;
+  const calc=m.Vr*m.Ir*m.pfr;m.calc=calc;m.err=Math.abs(m.Pr-calc)/calc;m.bad=m.err>TOL;
+  if(m.bad)anyBad=true;sa+=m.P;sr+=m.Pr;
+ });
+ S.fe=sa*(1.02+rnd(.004));S.sr=sr;S.imb=(S.fe-sr)/S.fe*100;
+ const th=+$('th').value,need=+$('cn').value;
+ S.cc=S.imb>th?S.cc+1:0;
+ S.l1f=anyBad;
+ if(anyBad&&!S.l1ever){S.l1ever=true;log('<b>Layer 1</b> physics inconsistency detected: reported P ≠ V × I × PF on meter '+(S.tgt+1)+'.','w');S.reach[3]=1}
+ if(!anyBad&&S.mode==='coord'&&!S.reach[5]){S.reach[5]=1;log('<b>Layer 1</b> passes: coordinated reports are mathematically consistent.','g')}
+ if(S.cc>0&&S.mode==='coord')S.reach[6]=1;
+ if(S.cc>0&&S.mode==='simple')S.reach[6]=1;
+ if(S.cc>=need&&!S.l2f){S.l2f=true;S.reach[7]=1;log('<b>CRITICAL</b> Layer 2: feeder imbalance '+f(S.imb)+'% exceeded '+th+'% for '+need+' consecutive ticks. Reported data is untrustworthy; source not identified.','c');
+  const a=$('alb');a.style.display='block';a.textContent='CRITICAL ALERT: feeder power exceeds total reported consumer power by '+f(S.imb)+'%. Suspicious telemetry manipulation; meter and attack type not yet determined.'}
+ if(S.cc<need&&S.l2f&&S.cc===0){S.l2f=false;$('alb').style.display='none'}
+ const h=S.hist,tm=S.m[S.tgt];
+ [['ia',tm.I],['ir',tm.Ir],['pa',tm.P],['pr',tm.Pr],['fe',S.fe],['sr',S.sr],['im',S.imb]].forEach(([n,v])=>{h[n].push(v);if(h[n].length>H)h[n].shift()});
+ draw();
+}
+function setMode(m){
+ if(!S.run)start();
+ S.mode=m;S.l1ever=false;S.l2f=false;S.cc=0;S.reach[m==='simple'?2:4]=1;
+ if(m==='simple')S.seenSimple=true;else S.seenCoord=true;
+ const k=$('mp').value;
+ log(m==='simple'?'<b>Attacker</b> launched simple FDI on meter '+(S.tgt+1)+': reported power reduced '+k+'%, V/I/PF untouched.':'<b>Attacker</b> launched coordinated stealth FDI on meter '+(S.tgt+1)+': reported current reduced '+k+'%, power recomputed from reported V, I, PF.','w');
+}
+function start(){if(timer)return;S.run=true;timer=setInterval(tick,700);log('Normal operation: all reports match physical measurements.','g')}
+function stopAtk(){if(S.mode!=='normal'){S.mode='normal';log('Attack stopped. Reporting returns to honest values.','g')}}
+function story(){
+ const st=['Normal grid operation','Simple FDI changes only power','Physics check flags the mismatch','Coordinated FDI changes current and recalculates power','Physics check passes','Feeder analysis finds imbalance','Critical security alert'];
+ let cur=1;for(let i=1;i<=7;i++)if(S.reach[i])cur=i;
+ const cp=["Normal operation: every meter reports what it measures, and the feeder delivers about 2% more than the reports (line losses).","Simple FDI: the attacker lowers only reported power. Voltage, current and power factor still describe the larger real load.","Layer 1 catches it: reported power does not equal V × I × PF.","Coordinated FDI: the attacker lowers current and recomputes power, so the reported numbers agree with each other.","Layer 1 passes: the forged report is internally consistent, so the physics rule alone is fooled.","Layer 2 sees a gap: the feeder delivers more power than all meters report together.","Critical alert: the unexplained gap persisted. Reported data is untrustworthy; the culprit is not yet identified."];
+ $('cap').textContent=!S.run?'Press "Start normal simulation" to begin.':(S.mode==='normal'&&cur>1?'Attack stopped: reports match the physical measurements again. Reset to replay the storyline.':cp[cur-1]);
+ $('story').innerHTML=st.map((s,i)=>'<div class="st '+(S.reach[i+1]?(i+1===cur?'now':'done'):'')+'"><b>'+(i+1)+'.</b> '+s+'</div>').join('');
+}
+function draw(){
+ const tm=S.m[S.tgt],th=+$('th').value,need=+$('cn').value,att=S.mode!=='normal';
+ $('l1').innerHTML=!S.run?'<span class="na">Idle</span>':S.l1f?'<span class="bad">FAIL</span>':'<span class="ok">PASS</span>';
+ $('l2').innerHTML=!S.run?'<span class="na">Idle</span>':S.l2f?'<span class="bad">CRITICAL</span>':S.cc>0?'<span class="wr">WATCH</span>':'<span class="ok">NORMAL</span>';
+ $('imb').innerHTML='<span class="'+(S.imb>th?'bad':'ok')+'">'+f(S.imb)+'%</span>';
+ $('cc').textContent=S.cc+' / '+need;$('fm').textContent=f(S.fe,0)+' W';$('sr').textContent=f(S.sr,0)+' W';
+ const row=(k,a,r,u,d)=>'<div class="card"><div class="k">'+k+'</div><div class="a">'+a.toFixed(d)+' '+u+'</div><div class="r '+(Math.abs(a-r)<.001*a?'same':'')+'">reported '+r.toFixed(d)+' '+u+'</div></div>';
+ $('dt').textContent='Meter '+(S.tgt+1)+(att?' under '+(S.mode==='simple'?'simple FDI':'coordinated stealth FDI'):'')+': actual (cyan) vs reported';
+ $('cards').innerHTML=row('Voltage',tm.V,tm.Vr,'V',1)+row('Current',tm.I,tm.Ir,'A',2)+row('Power factor',tm.pf,tm.pfr,'',3)+row('Active power',tm.P,tm.Pr,'W',1);
+ $('eq').innerHTML='Layer 1 on reported values: '+f(tm.Vr,1)+' × '+f(tm.Ir,2)+' × '+f(tm.pfr,3)+' = <b style="color:#dbe6ff">'+f(tm.calc||tm.P,1)+' W</b> vs reported P '+f(tm.Pr,1)+' W, error '+f((tm.err||0)*100,2)+'% → '+(tm.bad?'<span class="bad">INCONSISTENT</span>':'<span class="ok">consistent</span>')+'<br>Reference example: 230 V × 10 A × 0.95 = 2185 W actual; coordinated report 230 V × 5 A × 0.95 = 1092.5 W.';
+ $('tb').innerHTML='<tr><th>Meter</th><th>V act/rep</th><th>I act/rep (A)</th><th>PF</th><th>P actual (W)</th><th>P reported (W)</th><th>Reported V×I×PF</th><th>kWh act/rep</th><th>Layer 1</th></tr>'+S.m.map((m,i)=>'<tr class="'+(att&&i===S.tgt?'tg':'')+'"><td>Meter '+(i+1)+'</td><td>'+f(m.V)+' / '+f(m.Vr)+'</td><td>'+f(m.I,2)+' / '+f(m.Ir,2)+'</td><td>'+f(m.pf,3)+'</td><td>'+f(m.P,0)+'</td><td>'+f(m.Pr,0)+'</td><td>'+f(m.calc||m.P,0)+'</td><td>'+f(m.kWh,3)+' / '+f(m.kWhr,3)+'</td><td class="'+(m.bad?'bad':'ok')+'">'+(m.bad?'FAIL':'PASS')+'</td></tr>').join('');
+ const h=S.hist;
+ chart('c1',[[h.ia,'#22e6ff','actual'],[h.ir,'#ff9a3c','reported']],{});
+ chart('c2',[[h.pa,'#22e6ff','actual'],[h.pr,'#ff9a3c','reported']],{});
+ chart('c3',[[h.fe,'#a66bff','feeder measured'],[h.sr,'#4d8dff','sum reported']],{});
+ chart('c4',[[h.im,'#ff3d5a','imbalance %']],{thr:th,min:0,max:Math.max(15,th+3)});bars();balance();
+ story();topo();
+}
+function chart(id,ser,o){
+ const c=$(id),g=c.getContext('2d'),w=c.width,hh=c.height;g.clearRect(0,0,w,hh);
+ let all=ser.flatMap(s=>s[0]);let mn=o.min!==undefined?o.min:Math.min(...all,1e9<0?0:Infinity),mx=o.max!==undefined?o.max:Math.max(...all,-Infinity);
+ if(!all.length){mn=0;mx=1}else if(o.min===undefined){const p=(mx-mn)*.15||1;mn-=p;mx+=p}
+ g.strokeStyle='#1d2a4a';g.fillStyle='#8497c0';g.font='14px sans-serif';
+ for(let i=0;i<=4;i++){const y=8+(hh-24)*i/4;g.beginPath();g.moveTo(44,y);g.lineTo(w-6,y);g.stroke();g.fillText((mx-(mx-mn)*i/4).toFixed(mx>100?0:1),2,y+4)}
+ const X=i=>44+(w-52)*i/(H-1),Y=v=>8+(hh-24)*(1-(v-mn)/(mx-mn));
+ if(o.thr!==undefined){g.strokeStyle='#ff3d5a';g.setLineDash([6,5]);g.beginPath();g.moveTo(44,Y(o.thr));g.lineTo(w-6,Y(o.thr));g.stroke();g.setLineDash([])}
+ ser.forEach(([d,col],k)=>{g.strokeStyle=col;g.lineWidth=2;g.shadowColor=col;g.shadowBlur=6;g.beginPath();d.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));g.stroke();g.shadowBlur=0});
+ ser.forEach(([d,col,n],k)=>{g.fillStyle=col;g.fillText('■ '+n,52+k*150,hh-4)});
+}
+function bars(){
+ const c=$('c5'),g=c.getContext('2d'),w=c.width,h=c.height,att=S.mode!=='normal';g.clearRect(0,0,w,h);
+ const mx=Math.max(...S.m.map(m=>m.P))*1.2,bw=44,gw=(w-60)/N;g.font='bold 14px sans-serif';
+ g.fillStyle='#22e6ff';g.fillText('■ actual (physical)',50,16);g.fillStyle='#ff9a3c';g.fillText('■ reported',220,16);
+ S.m.forEach((m,i)=>{
+  const x=50+i*gw+gw/2-bw-3,t=att&&i===S.tgt;
+  [[m.P,'#22e6ff'],[m.Pr,t?'#ff3d5a':'#ff9a3c']].forEach(([v,col],k)=>{
+   const bh=(h-70)*v/mx,bx=x+k*(bw+6);g.fillStyle=col;g.shadowColor=col;g.shadowBlur=8;g.fillRect(bx,h-30-bh,bw,bh);g.shadowBlur=0;g.fillStyle='#dbe6ff';g.fillText(f(v,0),bx+2,h-34-bh)});
+  g.fillStyle='#8497c0';g.fillText('Meter '+(i+1),x+8,h-10);
+  if(t){g.fillStyle='#ff3d5a';g.fillText('−'+f(m.P-m.Pr,0)+' W hidden',x-14,40)}
+ });
+}
+function balance(){
+ const c=$('c6'),g=c.getContext('2d'),w=c.width,h=c.height,th=+$('th').value;g.clearRect(0,0,w,h);
+ g.font='bold 13px sans-serif';
+ if(!S.fe){g.fillStyle='#8497c0';g.fillText('Start the simulation to see the power balance',200,h/2);return}
+ const cl=['#22e6ff','#4d8dff','#a66bff','#35f0a0','#ffd23c'],sc=(h-60)/(S.fe*1.1),bw=150,base=h-30;
+ const col=(x,vals,title)=>{let y=base;vals.forEach(([v,c,l])=>{const bh=v*sc;g.fillStyle=c;g.fillRect(x,y-bh,bw,bh);if(bh>16){g.fillStyle='#04101c';g.fillText(l+' '+f(v,0)+' W',x+6,y-bh/2+5)}y-=bh});g.fillStyle='#dbe6ff';g.fillText(title,x-6,h-8);return y};
+ const loss=S.fe-S.m.reduce((a,m)=>a+m.P,0),gap=S.fe-S.sr,bad=S.imb>th;
+ col(40,[...S.m.map((m,i)=>[m.P,cl[i],'M'+(i+1)]),[loss,'#55607f','loss']],'Feeder (independent)');
+ const y=col(300,S.m.map((m,i)=>[m.Pr,cl[i],'M'+(i+1)]),'Server sees (reported)'),gh=gap*sc;
+ g.fillStyle=bad?'rgba(255,61,90,.3)':'rgba(120,130,160,.25)';g.strokeStyle=bad?'#ff3d5a':'#55607f';g.lineWidth=2;g.setLineDash([6,4]);
+ g.fillRect(300,y-gh,bw,gh);g.strokeRect(300,y-gh,bw,gh);
+ g.strokeStyle='#a66bff';g.beginPath();g.moveTo(40,base-S.fe*sc);g.lineTo(450,base-S.fe*sc);g.stroke();g.setLineDash([]);
+ g.fillStyle=bad?'#ff8aa0':'#8497c0';g.fillText('← gap '+f(gap,0)+' W ('+f(S.imb)+'%)',462,y-gh/2+5);
+ g.fillText(bad?'above '+th+'% limit: unaccounted':'within normal losses',462,y-gh/2+23);
+ g.fillStyle='#a66bff';g.fillText('feeder level',462,base-S.fe*sc+4);
+}
+function topo(){
+ const att=S.mode!=='normal',xs=[190,330,470,610,750],ch=att?(S.mode==='simple'?'#ff9a3c':'#ff3d5a'):'#4d8dff';
+ let s='';
+ s+='<rect x="20" y="290" width="120" height="70" rx="10" fill="#0e1528" stroke="#22e6ff" stroke-width="2"/><text x="80" y="320" fill="#22e6ff" font-size="16" text-anchor="middle">Master feeder</text><text x="80" y="342" fill="#dbe6ff" font-size="14" text-anchor="middle">'+f(S.fe,0)+' W measured</text>';
+ s+='<line class="flow" x1="140" y1="325" x2="840" y2="325" stroke="#22e6ff" stroke-width="4"/>';
+ s+='<circle cx="150" cy="325" r="6" fill="#a66bff"/><text x="168" y="355" fill="#a66bff" font-size="12">independent feeder sensor</text>';
+ s+='<rect x="400" y="15" width="150" height="62" rx="10" fill="#0e1528" stroke="#4d8dff" stroke-width="2"/><text x="475" y="42" fill="#4d8dff" font-size="16" text-anchor="middle">Monitoring server</text><text x="475" y="62" fill="#dbe6ff" font-size="13" text-anchor="middle">Σ reported '+f(S.sr,0)+' W</text>';
+ const dc=S.l2f?'#ff3d5a':S.l1f?'#ff9a3c':'#35f0a0';
+ s+='<rect x="660" y="15" width="170" height="62" rx="10" fill="#0e1528" stroke="'+dc+'" stroke-width="2"/><text x="745" y="40" fill="'+dc+'" font-size="16" text-anchor="middle">Detection engine</text><text x="745" y="60" fill="#dbe6ff" font-size="12.5" text-anchor="middle">L1 '+(S.l1f?'FAIL':'pass')+' | L2 '+(S.l2f?'CRITICAL':S.cc?'watch':'normal')+'</text>';
+ s+='<line x1="550" y1="46" x2="660" y2="46" stroke="#4d8dff" stroke-width="2"/>';
+ xs.forEach((x,i)=>{
+  const t=att&&i===S.tgt,col=t?ch:'#4d8dff',m=S.m[i];
+  s+='<line class="flow" x1="'+x+'" y1="325" x2="'+x+'" y2="270" stroke="#22e6ff" stroke-width="3"/>';
+  s+='<rect x="'+(x-55)+'" y="200" width="110" height="70" rx="8" fill="#0e1528" stroke="'+(t?'#ff3d5a':'#22e6ff')+'" stroke-width="'+(t?3:2)+'"/>';
+  s+='<text x="'+x+'" y="222" fill="#dbe6ff" font-size="15" text-anchor="middle">Meter '+(i+1)+'</text><text x="'+x+'" y="241" fill="#22e6ff" font-size="12.5" text-anchor="middle">act '+f(m.P,0)+' W</text><text x="'+x+'" y="259" fill="'+(t?'#ff9a3c':'#35f0a0')+'" font-size="12.5" text-anchor="middle">rep '+f(m.Pr,0)+' W</text>';
+  const p='M'+x+',200 V135 H475 V77';
+  s+='<path d="'+p+'" fill="none" stroke="'+col+'" stroke-width="2" opacity=".55"/>';
+  s+='<circle r="5" fill="'+col+'"><animateMotion dur="2.4s" begin="'+(i*.45)+'s" repeatCount="indefinite" path="'+p+'"/></circle>';
+ });
+ if(att){
+  const x=xs[S.tgt];
+  s+='<rect x="860" y="125" width="125" height="60" rx="10" fill="#2a1020" stroke="#ff3d5a" stroke-width="2"/><text x="922" y="150" fill="#ff3d5a" font-size="16" text-anchor="middle">Attacker</text><text x="922" y="170" fill="#ffb0bd" font-size="12" text-anchor="middle">'+(S.mode==='simple'?'edits P only':'edits I, recomputes P')+'</text>';
+  s+='<path d="M860,155 H'+(x+8)+' V165" fill="none" stroke="#ff3d5a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)"/>';
+  s+='<path d="M'+x+',180 V200" stroke="#ff3d5a" stroke-width="0"/>';
+ }
+ $('svgdyn').innerHTML=s;
+}
+const tg=$('tg');for(let i=0;i<N;i++)tg.add(new Option('Meter '+(i+1),i));tg.value=1;
+tg.onchange=()=>{S.tgt=+tg.value;S.hist={ia:[],ir:[],pa:[],pr:[],fe:S.hist.fe,sr:S.hist.sr,im:S.hist.im};draw()};
+$('mp').oninput=e=>$('mpv').textContent=e.target.value+'%';
+$('th').oninput=e=>{$('thv').textContent=e.target.value+'%';draw()};
+$('cn').oninput=e=>{$('cnv').textContent=e.target.value;draw()};
+$('bN').onclick=()=>{S.mode='normal';start()};
+$('bS').onclick=()=>setMode('simple');$('bC').onclick=()=>setMode('coord');$('bX').onclick=stopAtk;
+$('bR').onclick=()=>{clearInterval(timer);timer=null;init()};
+const Z=v=>{zoom=Math.min(2,Math.max(.5,v));$('stage').style.zoom=zoom};
+$('zi').onclick=()=>Z(zoom+.1);$('zo').onclick=()=>Z(zoom-.1);$('zr').onclick=()=>Z(1);
+$('fs').onclick=()=>document.fullscreenElement?document.exitFullscreen():$('app').requestFullscreen&&$('app').requestFullscreen();
+init();
+</script></body></html>

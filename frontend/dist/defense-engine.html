@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CP-SETD · Defense &amp; Detection Engine</title>
+<style>
+:root{--bg:#0b1220;--bg2:#101a2e;--card:#142038;--line:#23365a;--tx:#d6e2f5;--dim:#7c8fb0;--cy:#22e5ff;--em:#2bf0a0;--am:#ffb02e;--cr:#ff3d5a}
+*{box-sizing:border-box;margin:0}
+body{background:radial-gradient(1200px 600px at 80% -10%,#15284a 0,var(--bg) 60%) fixed,var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif;min-height:100vh}
+.mono,td,th,code,select,.num{font-family:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace}
+header{display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;padding:14px 22px;border-bottom:1px solid var(--line);background:rgba(11,18,32,.9);position:sticky;top:0;z-index:5}
+h1{font-size:17px;font-weight:600;letter-spacing:.2px}h1 small{display:block;color:var(--dim);font-weight:400;font-size:12px}
+.score{display:flex;align-items:center;gap:12px}
+.score b{font:700 34px ui-monospace,Consolas,monospace;transition:color .4s}
+.shields{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.sh{border:1px solid var(--em);color:var(--em);padding:3px 10px;border-radius:99px;font-size:12px;background:rgba(43,240,160,.07)}
+.sh.alert{border-color:var(--am);color:var(--am);background:rgba(255,176,46,.12);animation:pl .6s infinite alternate}
+@keyframes pl{to{box-shadow:0 0 12px var(--am)}}
+.feed label{display:block;font-size:11px;color:var(--dim)}
+select,button{background:var(--bg2);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:13px;cursor:pointer}
+select{border-color:var(--cy)}button:hover{border-color:var(--cy)}button:focus-visible,select:focus-visible,.tab:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+nav{display:flex;gap:4px;padding:10px 22px 0;overflow-x:auto;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;border-bottom:3px solid transparent;border-radius:0;padding:10px 14px;color:var(--dim);white-space:nowrap}
+.tab.on{color:var(--cy);border-color:var(--cy)}
+main{padding:20px 22px;max-width:1240px;margin:auto}
+section{display:none}section.on{display:block}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}.g3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h3{font-size:13px;font-weight:600;margin-bottom:8px;color:var(--cy)}
+p.note{color:var(--dim);font-size:12.5px;margin-bottom:10px;max-width:80ch}
+.big{font:700 30px ui-monospace,Consolas,monospace}.lbl{color:var(--dim);font-size:12px}
+.em{color:var(--em)}.cr{color:var(--cr)}.am{color:var(--am)}.cy{color:var(--cy)}
+canvas{width:100%;height:240px;display:block}
+.tw{max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{position:sticky;top:0;background:#0f1a30;text-align:left;color:var(--dim);font-weight:500;padding:6px 8px}
+td{padding:5px 8px;border-top:1px solid #1b2c4c;white-space:nowrap}
+.pill{padding:1px 8px;border-radius:99px;font-size:11px;border:1px solid}
+.ok{color:var(--em);border-color:var(--em)}.bad{color:var(--cr);border-color:var(--cr)}.warn{color:var(--am);border-color:var(--am)}
+ul.log{list-style:none;padding:0;font:12px ui-monospace,Consolas,monospace;max-height:230px;overflow:auto}
+ul.log li{padding:3px 0;border-bottom:1px solid #1b2c4c}
+.bar{height:8px;background:#0c1527;border-radius:4px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:var(--em);transition:width .4s,background .4s}
+.gpio{display:flex;justify-content:space-between;align-items:center}
+.led{width:16px;height:16px;border-radius:50%;background:var(--em);box-shadow:0 0 10px var(--em)}.led.x{background:var(--cr);box-shadow:0 0 12px var(--cr)}
+.chk{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.chk .card{flex:1;min-width:200px}
+@media(max-width:760px){header{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>CP-SETD Defense Engine<small>Cyber-Physical Smart Energy Theft Detection</small></h1></div>
+  <div class="shields">
+    <span class="sh" id="sh0">Shield 1 · Crypto</span><span class="sh" id="sh1">Shield 2 · Hardware</span>
+    <span class="sh" id="sh2">Shield 3 · Physics AI</span><span class="sh" id="sh3">Shield 4 · Resilience</span>
+  </div>
+  <div style="display:flex;gap:20px;align-items:center">
+    <div class="score"><div><div class="lbl">Grid defense health</div><b id="health">100%</b></div></div>
+    <div class="feed"><label for="feed">Incoming telemetry test feed</label>
+      <select id="feed">
+        <option value="normal">Normal stream</option><option value="tamper">Tamper / bypass stream</option>
+        <option value="fdi">FDI stream</option><option value="stealth">Stealthy FDI stream</option>
+        <option value="replay">Replay stream</option><option value="dos">DoS flood stream</option>
+      </select></div>
+  </div>
+</header>
+<nav id="nav" role="tablist">
+  <button class="tab on" data-t="0">Live Defense Pipeline</button><button class="tab" data-t="1">Hardware Tamper Shield</button>
+  <button class="tab" data-t="2">Physics &amp; Anomaly Filter</button><button class="tab" data-t="3">Cross-Layer Conservation (Novelty 1)</button>
+  <button class="tab" data-t="4">Cryptographic Gatekeeper</button><button class="tab" data-t="5">Hash-Chain Recovery (Novelty 2)</button>
+</nav>
+<main>
+<!-- TAB 1 -->
+<section class="on" id="s0">
+  <p class="note">Every incoming packet crosses three gates. A packet either reaches the green end (accepted) or drops out at the gate that caught it: red means blocked, amber means quarantined and replaced.</p>
+  <div class="card" style="margin-bottom:14px">
+    <svg id="pipe" viewBox="0 0 900 230" width="100%" role="img" aria-label="Defense pipeline diagram">
+      <line x1="60" y1="100" x2="840" y2="100" stroke="#23365a" stroke-width="3" stroke-dasharray="6 6"/>
+      <g font-size="12" text-anchor="middle" fill="#d6e2f5">
+        <rect x="20" y="78" width="80" height="44" rx="8" fill="#0f1a30" stroke="#7c8fb0"/><text x="60" y="104">Telemetry</text>
+        <rect x="205" y="70" width="90" height="60" rx="8" fill="#0f1a30" stroke="#22e5ff"/><text x="250" y="96">Gate 1</text><text x="250" y="112" fill="#7c8fb0" font-size="10.5">Crypto · Rate</text>
+        <rect x="405" y="70" width="90" height="60" rx="8" fill="#0f1a30" stroke="#22e5ff"/><text x="450" y="96">Gate 2</text><text x="450" y="112" fill="#7c8fb0" font-size="10.5">Dual sensor · GPIO</text>
+        <rect x="605" y="70" width="90" height="60" rx="8" fill="#0f1a30" stroke="#22e5ff"/><text x="650" y="96">Gate 3</text><text x="650" y="112" fill="#7c8fb0" font-size="10.5">Physics · Novelty 1</text>
+        <rect x="800" y="78" width="80" height="44" rx="8" fill="#0f1a30" stroke="#2bf0a0"/><text x="840" y="104" fill="#2bf0a0">Accepted</text>
+        <text x="250" y="218" fill="#ff3d5a">Replay / DoS</text><text x="450" y="218" fill="#ff3d5a">Tamper / bypass</text><text x="650" y="218" fill="#ffb02e">FDI / stealth FDI</text>
+      </g>
+    </svg>
+  </div>
+  <div class="grid g3" style="margin-bottom:14px">
+    <div class="card"><div class="lbl">Packets inspected</div><div class="big cy" id="c_in">0</div></div>
+    <div class="card"><div class="lbl">Threats blocked</div><div class="big cr" id="c_bl">0</div><div class="lbl" id="c_g">G1 0 · G2 0 · G3 0</div></div>
+    <div class="card"><div class="lbl">Clean packets accepted</div><div class="big em" id="c_ok">0</div></div>
+  </div>
+  <div class="card"><h3>Defense event log</h3><ul class="log" id="log"></ul></div>
+</section>
+<!-- TAB 2 -->
+<section id="s1">
+  <p class="note">Gate 2 compares the distribution pole sensor with the consumer smart meter. A gap above 12% or a tripped hardware interrupt marks the meter as bypassed or opened, and the missing energy is billed back.</p>
+  <div class="card" style="margin-bottom:14px"><h3>Pole power vs. meter power (W)</h3><canvas id="ch_pm"></canvas>
+    <div class="lbl"><span class="cy">■</span> Pole sensor (trusted) &nbsp; <span class="am">■</span> Consumer meter</div></div>
+  <div class="grid g3">
+    <div class="card"><h3>Hall-effect magnet sensor · GPIO 34</h3><div class="gpio"><div><div class="big" id="hallv">HIGH</div><div class="lbl" id="halls">No external magnet</div></div><div class="led" id="hallled"></div></div></div>
+    <div class="card"><h3>LDR casing sensor · GPIO 35</h3><div class="gpio"><div><div class="big" id="ldrv">0.1 V</div><div class="lbl" id="ldrs">Casing dark · sealed</div></div><div class="led" id="ldrled"></div></div></div>
+    <div class="card"><h3>Stolen energy compensation</h3><div class="big am" id="stolen">0.000 kWh</div><div class="lbl" id="stolenr">Bill adjustment: ₹0.00 at ₹8/kWh</div><div class="lbl" id="gapw">Current gap: 0 W</div></div>
+  </div>
+</section>
+<!-- TAB 3 -->
+<section id="s2">
+  <p class="note">The meter must obey P = V × I × PF. When the reported power disagrees with that product by more than 5%, the packet is quarantined and a state-estimated value (smoothed history of clean readings) takes its place.</p>
+  <div class="grid g2" style="margin-bottom:14px">
+    <div class="card"><h3>Residual |P<sub>reported</sub> − V·I·PF|</h3><div class="big" id="resv">0 W</div><div class="bar"><i id="resbar" style="width:0"></i></div><div class="lbl" id="resl">Threshold: 5% of expected power</div><canvas id="ch_res" style="height:170px;margin-top:8px"></canvas></div>
+    <div class="card"><h3>Quarantine summary</h3><div class="big am" id="quar">0</div><div class="lbl">packets quarantined and replaced by estimator output</div></div>
+  </div>
+  <div class="tw"><table><thead><tr><th>Packet</th><th>V</th><th>I (A)</th><th>PF</th><th>P reported</th><th>V·I·PF</th><th>Residual</th><th>Verdict</th><th>Value used</th></tr></thead><tbody id="t3"></tbody></table></div>
+</section>
+<!-- TAB 4 -->
+<section id="s3">
+  <p class="note">A stealthy attacker falsifies V, I and P together, so the local physics check passes. Energy conservation still fails: the transformer supply must equal the sum of pole loads plus line loss, and the total must fit the load baseline for the current hour and temperature.</p>
+  <div class="chk" id="chk"></div>
+  <div class="card"><h3>Transformer output vs. aggregated pole loads + line loss (W)</h3><canvas id="ch_cons" style="height:270px"></canvas>
+    <div class="lbl"><span class="cy">■</span> Transformer supply &nbsp; <span class="em">■</span> Poles + 4% line loss &nbsp; <span class="am">━</span> Environmental baseline</div></div>
+</section>
+<!-- TAB 5 -->
+<section id="s4">
+  <p class="note">Gate 1 accepts a packet only when its timestamp is within ±5 s of server time, its nonce has never been seen, and the sender stays under 6 packets per second. Anything else is dropped before it reaches the physics layers.</p>
+  <div class="grid g3" style="margin-bottom:14px">
+    <div class="card"><div class="lbl">Heartbeat</div><div class="big" id="hb">ALIVE</div></div>
+    <div class="card"><div class="lbl">Rate limiter (last second)</div><div class="big cy" id="rate">0 pkt/s</div></div>
+    <div class="card"><div class="lbl">Nonces remembered</div><div class="big cy" id="nn">0</div></div>
+  </div>
+  <div class="tw"><table><thead><tr><th>Packet ID</th><th>Incoming timestamp</th><th>Server time</th><th>Δt</th><th>Nonce</th><th>Gatekeeper action</th></tr></thead><tbody id="t5"></tbody></table></div>
+</section>
+<!-- TAB 6 -->
+<section id="s5">
+  <p class="note">When DoS cuts the uplink, the ESP32 keeps recording. Each block stores Hash<sub>n</sub> = SHA256(Data<sub>n</sub> + Hash<sub>n−1</sub>), computed with the browser Web Crypto API. After reconnection, the chain is recomputed block by block; any edited record breaks its own hash.</p>
+  <div class="grid g3" style="margin-bottom:14px">
+    <div class="card"><div class="lbl">Edge node mode</div><div class="big" id="edge">ONLINE</div><div class="lbl" id="edgesub">Streaming live to server</div></div>
+    <div class="card"><div class="lbl">Buffered blocks</div><div class="big cy" id="nb">0</div></div>
+    <div class="card"><div class="lbl">Records recovered</div><div class="big em" id="nrec">0</div><div class="lbl" id="vres">Chain not verified yet</div></div>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <button id="bver">Verify &amp; sync chain</button><button id="bcor">Corrupt one block (demo)</button><button id="bclr">Clear buffer</button>
+  </div>
+  <div class="tw"><table><thead><tr><th>#</th><th>Data (idx|time|P|V)</th><th>Prev hash</th><th>SHA-256 hash</th><th>State</th></tr></thead><tbody id="t6"></tbody></table></div>
+</section>
+</main>
+
+<script>
+"use strict";
+/* ============================================================
+   CP-SETD Defense Engine – all logic is local, no dependencies.
+   Telemetry source = the "test feed" selector (stands in for an
+   external attack simulator). Every packet runs through:
+     Gate 1 (crypto / freshness / rate)  -> Gate 2 (hardware, dual sensor)
+     -> Gate 3 (physics P=VIPF, then Novelty 1 conservation)
+   Layer 4 (Novelty 2) buffers readings in a SHA-256 hash chain during DoS.
+   ============================================================ */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const S={mode:'normal',id:0,inspected:0,accepted:0,blocked:0,g:[0,0,0],quar:0,stolen:0,health:100,
+  hour:9,temp:30,seen:[],rate:[],est:1800,hist:{pole:[],meter:[],res:[],T:[],sum:[],base:[]},
+  t3:[],t5:[],log:[],last:[0,0,0,0],sample:null,sampled:false,chain:[],offline:false,recent:[],lastP:1800,lastV:230,recovered:0,gap:0};
+for(let i=0;i<6;i++)S.seen.push(hex());
+function hex(){const a=new Uint8Array(4);crypto.getRandomValues(a);return [...a].map(b=>b.toString(16).padStart(2,'0')).join('')}
+const r=(a,b)=>a+Math.random()*(b-a), cap=(a,n)=>{while(a.length>n)a.pop()};
+function log(m,c){S.log.unshift({t:new Date().toLocaleTimeString(),m,c});cap(S.log,40)}
+
+/* Environmental baseline: expected total feeder load from hour-of-day and ambient temperature */
+const baseline=()=>3800+700*Math.sin((S.hour-8)/24*2*Math.PI)+40*(S.temp-25);
+
+/* ---------- Telemetry generator (the incoming feed under test) ---------- */
+function build(){
+  const now=Date.now(),base=baseline();
+  const P=r(1720,1880),V=r(227,233),PF=r(.90,.94),T=base*r(.98,1.02);
+  let pole=P,meter=P*r(.99,1.01),hall=1,ldr=0,sum=T*.96*r(.99,1.01),ts=now+r(-250,250),nonce=hex(),k=1;
+  const m=S.mode;
+  if(m==='tamper'){meter=P*r(.4,.6);if(Math.random()<.6)hall=0;if(Math.random()<.3)ldr=1}
+  if(m==='stealth'){pole=meter=P*.68;sum=T*.96*.68*r(.99,1.01)}       // whole cluster under-reports consistently
+  if(m==='replay'){ts=now-r(30000,60000);nonce=S.seen[Math.floor(Math.random()*S.seen.length)]}
+  const I=meter/(V*PF); let Pr=meter;                                    // honest V,I,PF obey P=VIPF
+  if(m==='fdi')Pr=meter*(Math.random()<.5?r(1.5,2.1):r(.4,.6));         // P field falsified only
+  return{id:'PKT-'+String(++S.id).padStart(5,'0'),now,ts,nonce,V,I,PF,Pr,pole,meter,hall,ldr,T,sum,base};
+}
+
+/* ---------- The three gates ---------- */
+function inspect(p){
+  S.inspected++; const dt=p.now-p.ts; let act='ACCEPTED',cls='ok',stop=4,why='';
+  /* GATE 1a – rate limiter: more than 6 packets inside 1 s is treated as a flood */
+  S.rate=S.rate.filter(t=>p.now-t<1000);S.rate.push(p.now);
+  const flood=S.rate.length>6;
+  /* GATE 1b – freshness: stale timestamp; GATE 1c – nonce uniqueness (replay) */
+  const stale=Math.abs(dt)>5000, reused=S.seen.includes(p.nonce);
+  if(flood){act='DROPPED - RATE LIMIT (DoS)';cls='bad';stop=1;why='flood from one sender'}
+  else if(stale||reused){act='DROPPED - REPLAY DETECTED';cls='bad';stop=1;why=(stale?'stale timestamp ':'')+(reused?'reused nonce':'')}
+  else{S.seen.push(p.nonce);cap2(S.seen,300);
+    if(!S.sampled){S.sampled=true;S.sample=p;sampleHist(p)}
+    /* GATE 2 – dual-sensor cross-check + hardware interrupts */
+    const gap=p.pole-p.meter,dev=Math.abs(gap)/p.pole;
+    if(p.hall===0||p.ldr===1||dev>.12){stop=2;cls='bad';act='BLOCKED - TAMPER / BYPASS';why=p.hall===0?'Hall magnet':p.ldr?'casing opened':'pole-meter gap '+(dev*100).toFixed(0)+'%';
+      S.stolen+=Math.max(0,gap)/1000*.25; S.gap=gap;}   // each packet = one 15-min interval
+    else{
+      /* GATE 3a – electrical law: P must equal V*I*PF */
+      const exp=p.V*p.I*p.PF,res=Math.abs(p.Pr-exp),bad=res/exp>.05;
+      const row={id:p.id,V:p.V,I:p.I,PF:p.PF,Pr:p.Pr,exp,res,v:'PASS',used:p.Pr};
+      if(bad){row.v='QUARANTINED';row.used=S.est;S.quar++;stop=3;cls='warn';act='QUARANTINED - PHYSICS VIOLATION';why='residual '+res.toFixed(0)+' W'}
+      else{
+        /* GATE 3b – Novelty 1: transformer conservation + environmental baseline */
+        const loss=.04*p.T,mis=(p.T-(p.sum+loss))/p.T,off=Math.abs(p.sum-p.base)/p.base;
+        if(Math.abs(mis)>.08||off>.2){stop=3;cls='warn';act='BLOCKED - STEALTH FDI (CONSERVATION)';why='energy gap '+(mis*100).toFixed(0)+'%';row.v='PASS local / FAIL grid';S.quar++}
+        else S.est=.7*S.est+.3*p.Pr;                  // update state estimator with clean data only
+      }
+      S.t3.unshift(row);cap(S.t3,14);S.hist.res.push(res);cap2(S.hist.res,40);S.resNow=[res,exp];
+    }
+  }
+  S.t5.unshift({id:p.id,ts:p.ts,now:p.now,dt,nonce:p.nonce,act,cls});cap(S.t5,16);
+  if(stop===4){S.accepted++;S.recent.unshift(0)}else{S.blocked++;S.g[stop-1]++;S.last[stop-1]=Date.now();S.recent.unshift(1);
+    log('Gate '+stop+' · '+p.id+' · '+act+(why?' ('+why+')':''),cls)}
+  cap(S.recent,30);spawn(stop,cls);
+}
+function cap2(a,n){while(a.length>n)a.shift()}
+function sampleHist(p){const h=S.hist;h.pole.push(p.pole);h.meter.push(p.meter);h.T.push(p.T);h.sum.push(p.sum+.04*p.T);h.base.push(p.base);
+  Object.values(h).forEach(a=>cap2(a,40));S.lastP=p.meter;S.lastV=p.V}
+
+/* ---------- Layer 4 (Novelty 2): SHA-256 hash-chained offline buffer ---------- */
+const GEN='0'.repeat(64);
+async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+let chainQ=Promise.resolve();
+function appendBlock(){
+  const P=S.lastP,V=S.lastV;
+  chainQ=chainQ.then(async()=>{
+    const i=S.chain.length,prev=i?S.chain[i-1].hash:GEN;
+    const data=i+'|'+Date.now()+'|'+P.toFixed(1)+'|'+V.toFixed(1);
+    const hash=await sha(data+prev);                 // Hash_n = SHA256(Data_n + Hash_n-1)
+    S.chain.push({i,data,prev,hash,state:'BUFFERED'});
+  });
+}
+async function verifyChain(){
+  let prev=GEN,ok=true,bad=0;
+  for(const b of S.chain){
+    const h=await sha(b.data+b.prev);
+    if(h!==b.hash||b.prev!==prev){b.state='TAMPERED';ok=false;bad++}else b.state='VERIFIED';
+    prev=b.hash;
+  }
+  if(S.chain.length&&ok){S.chain.forEach(b=>b.state='SYNCED');S.recovered+=S.chain.length;$('#vres').textContent='All '+S.chain.length+' blocks verified. Records synced to server.';$('#vres').className='lbl em';log('Layer 4 · hash chain verified, '+S.chain.length+' records recovered','ok')}
+  else if(!S.chain.length){$('#vres').textContent='Nothing buffered to verify.'}
+  else{$('#vres').textContent=bad+' block(s) failed integrity. Do not sync them.';$('#vres').className='lbl cr';log('Layer 4 · chain integrity FAILED on '+bad+' block(s)','bad')}
+  renderChain();
+}
+function edgeTick(){
+  const off=S.mode==='dos';
+  if(off&&!S.offline){log('Layer 4 · uplink lost, edge node enters offline buffer mode','warn');S.last[3]=Date.now()}
+  if(!off&&S.offline){log('Layer 4 · link restored, '+S.chain.length+' blocks waiting for verification','ok')}
+  S.offline=off; if(off){appendBlock();S.last[3]=Date.now()}
+}
+
+/* ---------- Pipeline animation (SVG dots) ---------- */
+const NS='http://www.w3.org/2000/svg',GX=[0,250,450,650],dots=[];
+function spawn(stop,cls){if(dots.length>40)return;const c=document.createElementNS(NS,'circle');c.setAttribute('r',5);c.setAttribute('fill','#22e5ff');$('#pipe').appendChild(c);dots.push({c,x:60,y:100,stop,cls,st:0})}
+function anim(){
+  for(let i=dots.length-1;i>=0;i--){const d=dots[i];
+    if(d.st===0){d.x+=7;const tg=d.stop===4?840:GX[d.stop];
+      if(d.x>=tg){if(d.stop===4){d.c.remove();dots.splice(i,1);continue}d.st=1;d.c.setAttribute('fill',d.cls==='warn'?'#ffb02e':'#ff3d5a')}}
+    else{d.y+=4;if(d.y>190){d.c.remove();dots.splice(i,1);continue}}
+    d.c.setAttribute('cx',d.x);d.c.setAttribute('cy',d.y)}
+  requestAnimationFrame(anim)}
+
+/* ---------- Canvas helpers ---------- */
+function cv(id){const c=$('#'+id),d=window.devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;if(!w)return[null];
+  if(c.width!==Math.round(w*d)){c.width=w*d;c.height=h*d}const x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,w,h);return[x,w,h]}
+function axes(x,w,h,lo,hi){x.strokeStyle='#23365a';x.fillStyle='#7c8fb0';x.font='11px ui-monospace,Consolas,monospace';
+  for(let i=0;i<=4;i++){const y=10+(h-30)*i/4;x.beginPath();x.moveTo(46,y);x.lineTo(w-8,y);x.stroke();x.fillText(Math.round(hi-(hi-lo)*i/4),4,y+4)}}
+function lineChart(id,ser,th){const[x,w,h]=cv(id);if(!x)return;const all=ser.flatMap(s=>s.d);if(all.length<2)return;
+  let lo=Math.min(...all)*.85,hi=Math.max(...all,th||0)*1.1;if(lo===hi)hi=lo+1;axes(x,w,h,lo,hi);
+  const Y=v=>10+(h-30)*(1-(v-lo)/(hi-lo)),X=i=>46+(w-54)*i/39;
+  if(th){x.strokeStyle='#ff3d5a';x.setLineDash([5,4]);x.beginPath();x.moveTo(46,Y(th));x.lineTo(w-8,Y(th));x.stroke();x.setLineDash([])}
+  ser.forEach(s=>{x.strokeStyle=s.c;x.lineWidth=2;x.beginPath();s.d.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)));x.stroke()})}
+function barChart(id){const[x,w,h]=cv(id);if(!x)return;const H=S.hist,n=H.T.length;if(n<2)return;
+  const hi=Math.max(...H.T,...H.sum,...H.base)*1.1;axes(x,w,h,0,hi);const Y=v=>10+(h-30)*(1-v/hi),slot=(w-54)/16,bw=slot/2.6;
+  const s=Math.max(0,n-16);for(let i=s;i<n;i++){const px=50+(i-s)*slot;
+    x.fillStyle='#22e5ff';x.fillRect(px,Y(H.T[i]),bw,h-20-Y(H.T[i]));x.fillStyle='#2bf0a0';x.fillRect(px+bw+2,Y(H.sum[i]),bw,h-20-Y(H.sum[i]))}
+  x.strokeStyle='#ffb02e';x.lineWidth=2;x.beginPath();for(let i=s;i<n;i++){const px=50+(i-s)*slot+bw;i===s?x.moveTo(px,Y(H.base[i])):x.lineTo(px,Y(H.base[i]))}x.stroke()}
+
+/* ---------- Rendering ---------- */
+const pill=(t,c)=>'<span class="pill '+c+'">'+t+'</span>';
+function render(){
+  // header: health score smooths toward 100 - threat pressure of the last 30 packets
+  const ratio=S.recent.length?S.recent.reduce((a,b)=>a+b,0)/S.recent.length:0;
+  S.health+=(Math.max(12,100-ratio*88)-S.health)*.35;const hv=Math.round(S.health),hc=hv>80?'var(--em)':hv>50?'var(--am)':'var(--cr)';
+  $('#health').textContent=hv+'%';$('#health').style.color=hc;
+  for(let i=0;i<4;i++)$('#sh'+i).classList.toggle('alert',Date.now()-S.last[i]<1500);
+  $('#c_in').textContent=S.inspected;$('#c_bl').textContent=S.blocked;$('#c_ok').textContent=S.accepted;
+  $('#c_g').textContent='G1 '+S.g[0]+' · G2 '+S.g[1]+' · G3 '+S.g[2];
+  $('#log').innerHTML=S.log.slice(0,9).map(l=>'<li><span class="'+(l.c==='ok'?'em':l.c==='bad'?'cr':'am')+'">'+l.t+'</span> '+l.m+'</li>').join('');
+  const p=S.sample,tab=+$('.tab.on').dataset.t;
+  if(tab===1&&p){
+    lineChart('ch_pm',[{d:S.hist.pole,c:'#22e5ff'},{d:S.hist.meter,c:'#ffb02e'}]);
+    const hall=p.hall===1,ldr=p.ldr===1;
+    $('#hallv').textContent=hall?'HIGH':'LOW';$('#halls').textContent=hall?'No external magnet':'MAGNET DETECTED · interrupt fired';$('#hallled').classList.toggle('x',!hall);
+    $('#ldrv').textContent=ldr?'3.1 V':'0.1 V';$('#ldrs').textContent=ldr?'LIGHT inside · casing opened':'Casing dark · sealed';$('#ldrled').classList.toggle('x',ldr);
+    $('#stolen').textContent=S.stolen.toFixed(3)+' kWh';$('#stolenr').textContent='Bill adjustment: ₹'+(S.stolen*8).toFixed(2)+' at ₹8/kWh';
+    $('#gapw').textContent='Current gap: '+Math.round(p.pole-p.meter)+' W';
+  }
+  if(tab===2){
+    if(S.resNow){const[res,exp]=S.resNow,pc=res/exp*100;$('#resv').textContent=res.toFixed(0)+' W ('+pc.toFixed(1)+'%)';$('#resv').className='big '+(pc>5?'am':'em');
+      $('#resbar').style.width=Math.min(100,pc*10)+'%';$('#resbar').style.background=pc>5?'var(--am)':'var(--em)';
+      lineChart('ch_res',[{d:S.hist.res,c:'#22e5ff'}],exp*.05)}
+    $('#quar').textContent=S.quar;
+    $('#t3').innerHTML=S.t3.map(t=>'<tr><td>'+t.id+'</td><td>'+t.V.toFixed(1)+'</td><td>'+t.I.toFixed(2)+'</td><td>'+t.PF.toFixed(2)+'</td><td>'+t.Pr.toFixed(0)+' W</td><td>'+t.exp.toFixed(0)+' W</td><td>'+t.res.toFixed(0)+' W</td><td>'+pill(t.v,t.v==='PASS'?'ok':t.v==='QUARANTINED'?'warn':'bad')+'</td><td>'+t.used.toFixed(0)+' W'+(t.v==='QUARANTINED'?' (estimated)':'')+'</td></tr>').join('');
+  }
+  if(tab===3&&p){
+    const exp=p.V*p.I*p.PF,phys=Math.abs(p.Pr-exp)/exp<.05,dual=Math.abs(p.pole-p.meter)/p.pole<.12&&p.hall&&!p.ldr;
+    const loss=.04*p.T,mis=(p.T-(p.sum+loss))/p.T,cons=Math.abs(mis)<=.08,env=Math.abs(p.sum-p.base)/p.base<=.2;
+    const C=(t,ok,s)=>'<div class="card"><div class="lbl">'+t+'</div><div class="big '+(ok?'em':'cr')+'">'+(ok?'PASS':'FAIL')+'</div><div class="lbl">'+s+'</div></div>';
+    $('#chk').innerHTML=C('Local physics P = V·I·PF',phys,'residual '+Math.abs(p.Pr-exp).toFixed(0)+' W')+C('Dual-sensor check',dual,'pole vs meter')+
+      C('Conservation: supply = poles + loss',cons,'gap '+(mis*100).toFixed(1)+'% of '+p.T.toFixed(0)+' W')+
+      C('Baseline for '+S.hour.toFixed(0)+':00 at '+S.temp.toFixed(1)+' °C',env,'expected '+p.base.toFixed(0)+' W, poles sum '+p.sum.toFixed(0)+' W');
+    barChart('ch_cons');
+  }
+  if(tab===4){
+    $('#t5').innerHTML=S.t5.map(t=>'<tr><td>'+t.id+'</td><td>'+new Date(t.ts).toLocaleTimeString()+'.'+String(t.ts%1000|0).padStart(3,'0')+'</td><td>'+new Date(t.now).toLocaleTimeString()+'</td><td class="'+(Math.abs(t.dt)>5000?'cr':'')+'">'+(t.dt/1000).toFixed(2)+' s</td><td>'+t.nonce+'</td><td>'+pill(t.act,t.cls)+'</td></tr>').join('');
+    const f=S.mode==='dos';$('#hb').textContent=f?'LOST':'ALIVE';$('#hb').className='big '+(f?'cr':'em');
+    $('#rate').textContent=S.rate.filter(t=>Date.now()-t<1000).length+' pkt/s';$('#nn').textContent=S.seen.length;
+  }
+  if(tab===5)renderChain();
+}
+function renderChain(){
+  $('#edge').textContent=S.offline?'OFFLINE BUFFER':'ONLINE';$('#edge').className='big '+(S.offline?'am':'em');
+  $('#edgesub').textContent=S.offline?'Autonomous mode · recording locally':'Streaming live to server';
+  $('#nb').textContent=S.chain.length;$('#nrec').textContent=S.recovered;
+  $('#t6').innerHTML=S.chain.slice(-14).reverse().map(b=>'<tr><td>'+b.i+'</td><td>'+b.data+'</td><td>'+b.prev.slice(0,14)+'…</td><td>'+b.hash.slice(0,24)+'…</td><td>'+pill(b.state,b.state==='TAMPERED'?'bad':b.state==='BUFFERED'?'warn':'ok')+'</td></tr>').join('')}
+
+/* ---------- Main loop & controls ---------- */
+function tick(){
+  S.hour=(S.hour+.1)%24;S.temp=31+4*Math.sin(S.hour/24*6.283-2);S.sampled=false;
+  const n=S.mode==='dos'?10:1;for(let i=0;i<n;i++)inspect(build());
+  edgeTick();render();
+}
+$('#feed').onchange=e=>{S.mode=e.target.value;log('Test feed switched to "'+e.target.selectedOptions[0].text+'"','warn')};
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(t=>t.classList.toggle('on',t===b));$$('section').forEach((s,i)=>s.classList.toggle('on',i==b.dataset.t));render()});
+$('#bver').onclick=verifyChain;
+$('#bcor').onclick=()=>{if(!S.chain.length)return;const b=S.chain[Math.floor(S.chain.length/2)],f=b.data.split('|');f[2]=(f[2]*.5).toFixed(1);b.data=f.join('|');log('Layer 4 · block #'+b.i+' was altered in storage (demo)','warn');renderChain()};
+$('#bclr').onclick=()=>{S.chain=[];$('#vres').textContent='Chain not verified yet';$('#vres').className='lbl';renderChain()};
+requestAnimationFrame(anim);tick();setInterval(tick,1000);
+window.addEventListener('resize',render);
+</script>
+</body>
+</html>

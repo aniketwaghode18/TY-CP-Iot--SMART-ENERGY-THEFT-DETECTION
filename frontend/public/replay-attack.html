@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Grid Replay Attack — Visual Simulation</title>
+<style>
+:root{--bd:#1e2f56;--cyan:#00f0ff;--pur:#a855f7;--org:#f59e0b;--red:#ef4444;--grn:#10b981;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif}
+body{background:#060b19;color:#f1f5f9;overflow-x:hidden}
+header{padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border-bottom:2px solid var(--bd);background:#0a1226}
+h1{font-size:1.15rem;font-weight:800;background:linear-gradient(90deg,var(--cyan),var(--pur));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.badge{padding:7px 14px;border-radius:8px;font-weight:700;font-size:.85rem;border:1px solid var(--grn);background:rgba(16,185,129,.15);color:var(--grn)}
+.badge.atk{border-color:var(--red);background:rgba(239,68,68,.2);color:#fca5a5;animation:pr 1s infinite}
+@keyframes pr{50%{box-shadow:0 0 22px rgba(239,68,68,.9)}}
+.bar{display:flex;flex-wrap:wrap;gap:10px;padding:12px 20px;align-items:center;background:#0a1226}
+button{padding:11px 16px;border-radius:8px;font-weight:700;font-size:.9rem;border:none;cursor:pointer;color:#fff}
+button:disabled{opacity:.4;cursor:not-allowed}
+.g{background:var(--grn);color:#042f2e}.p{background:var(--pur)}.r{background:var(--red)}.o{background:var(--org);color:#1c1917}.s{background:#334155}
+label{display:flex;gap:8px;align-items:center;background:#131e3a;border:1px solid var(--bd);padding:9px 14px;border-radius:8px;font-weight:600;font-size:.88rem}
+input{width:18px;height:18px;accent-color:var(--cyan)}
+#wrap{background:#000;border-top:2px solid var(--bd);border-bottom:2px solid var(--bd)}
+canvas{width:100%;aspect-ratio:1100/640;display:block}
+#wrap:fullscreen{display:flex;align-items:center;justify-content:center}
+#wrap:fullscreen canvas{width:auto;height:100vh}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 20px}
+@media(max-width:800px){.row{grid-template-columns:1fr}}
+.pc{background:#0d152a;border:2px solid var(--bd);border-radius:12px;padding:14px}
+.pt{font-size:.9rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--cyan);margin-bottom:10px}
+#log{height:190px;overflow-y:auto;background:#070c1a;border-radius:8px;padding:8px;font:.8rem Consolas,monospace;display:flex;flex-direction:column;gap:5px}
+.le{padding:4px 8px;border-left:3px solid var(--cyan);background:rgba(255,255,255,.03);border-radius:4px}
+.le.warn{border-color:var(--pur)}.le.danger{border-color:var(--red);background:rgba(239,68,68,.14);color:#fecaca}.le.success{border-color:var(--grn)}
+.th{font-size:.86rem;color:#cbd5e1;line-height:1.55}.th b{color:var(--org)}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ SMART GRID CYBER-DEFENSE — REPLAY ATTACK SIMULATION</h1>
+  <div id="badge" class="badge">● SYSTEM SECURE — NORMAL TELEMETRY</div>
+</header>
+<div class="bar">
+  <button class="g" id="bPause" onclick="togglePause()">⏸ Pause</button>
+  <button class="p" onclick="capturePacket()">📡 1. Sniff a Packet (Night)</button>
+  <button class="r" id="bRep" onclick="launchReplay()" disabled>⚡ 2. Launch Replay (Peak Hour)</button>
+  <button class="o" id="bStop" onclick="stopReplay()" disabled>🛑 Stop</button>
+  <button class="s" onclick="resetSim()">↺ Reset</button>
+  <button class="s" onclick="fs()">⛶ Fullscreen</button>
+  <label><input type="checkbox" id="def" checked onchange="toggleDef()"> DISCOM Defense Engine</label>
+</div>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div class="row">
+  <div class="pc"><div class="pt">Security Event Timeline</div><div id="log"></div></div>
+  <div class="pc"><div class="pt">Why Replay Attacks Threaten Smart Grids</div>
+    <div class="th">A <b>replay attack</b> breaks data integrity without breaking encryption. The attacker records a valid low-usage packet (e.g. 1.4 kW at 2 AM) and re-sends it during peak load (5.8 kW at 7 PM), so the DISCOM bills far less than was consumed.<br><br>
+    <b>Defense:</b> timestamps alone fail with clock drift or replays inside the latency window. Strictly increasing <b>sequence numbers</b>, <b>freshness timestamps</b> and an <b>HMAC signature</b> make every packet valid once and only once.<br><br>
+    Watch the chart: the red area is energy the grid consumed but never billed.</div></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id), cv=$('c'), ctx=cv.getContext('2d');
+const W=1100,H=640;
+let sc=1,t=0,last=0,paused=false;
+let seq=100,lastSeq=100,actual=3.8,srv=3.8,dA=3.8,dS=3.8,cap=null,replay=false,defense=true,alertT=0,skyT=0,spawnAcc=0;
+let packets=[],parts=[],rings=[],hist=[],histAcc=0,loss=0,blocked=0;
+const MO={x:375,y:300},GW={x:540,y:250},LK={x:700,y:250},SV={x:820,y:250},AT={x:800,y:520};
+
+function size(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;sc=r.width/W*d}
+addEventListener('resize',size);document.addEventListener('fullscreenchange',()=>setTimeout(size,80));size();
+
+const fmt=d=>d.toTimeString().split(' ')[0];
+function log(m,ty='info'){const e=document.createElement('div');e.className='le '+ty;e.innerHTML='<span style="color:#64748b">['+fmt(new Date())+']</span> '+m;$('log').prepend(e);if($('log').children.length>40)$('log').lastChild.remove()}
+function rr(x,y,w,h,r,f,s,lw=2){ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,h,r):ctx.rect(x,y,w,h);if(f){ctx.fillStyle=f;ctx.fill()}if(s){ctx.lineWidth=lw;ctx.strokeStyle=s;ctx.stroke()}}
+function tx(s,x,y,font,c,al='center'){ctx.font=font;ctx.fillStyle=c;ctx.textAlign=al;ctx.fillText(s,x,y)}
+function glow(pts,c,w=4,dash=false){ctx.save();ctx.beginPath();if(dash)ctx.setLineDash([10,8]);ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.strokeStyle=c;ctx.lineWidth=w;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.stroke();ctx.restore()}
+const lerp=(a,b,k)=>a+(b-a)*k;
+function mix(a,b,k){return 'rgb('+a.map((v,i)=>Math.round(lerp(v,b[i],k))).join(',')+')'}
+
+function togglePause(){paused=!paused;$('bPause').textContent=paused?'▶ Resume':'⏸ Pause'}
+function fs(){const e=$('wrap');document.fullscreenElement?document.exitFullscreen():e.requestFullscreen&&e.requestFullscreen().catch(()=>{})}
+function badge(){const b=$('badge');if(alertT>0){b.className='badge atk';b.textContent='🚨 REPLAY_ATTACK_DETECTED'}else if(replay&&!defense){b.className='badge atk';b.textContent='⚠ SERVER SPOOFED — DEFENSE OFF'}else{b.className='badge';b.textContent='● SYSTEM SECURE — NORMAL TELEMETRY'}}
+
+function mkPacket(o){packets.push(Object.assign({i:0,u:0},o))}
+function capturePacket(){
+  seq++;const p=+(1.35+Math.random()*.45).toFixed(2);
+  cap={power:p,seq,ts:fmt(new Date()),ms:Date.now()};
+  mkPacket({type:'legit',power:p,seq,ts:cap.ts,ms:cap.ms,path:[MO,GW,LK,SV],sniff:true});
+  $('bRep').disabled=false;
+  log('ATTACKER SNIFFED packet [Seq #'+seq+' | '+p+' kW | '+cap.ts+'] from the backhaul link','warn');
+}
+function launchReplay(){
+  if(!cap)return;replay=true;$('bRep').disabled=true;$('bStop').disabled=false;
+  log('REPLAY STARTED: re-sending Seq #'+cap.seq+' ('+cap.power+' kW) while real load is peak','danger');badge();
+}
+function stopReplay(){replay=false;alertT=0;$('bRep').disabled=!cap;$('bStop').disabled=true;log('Replay halted. Traffic back to normal.','success');badge()}
+function toggleDef(){defense=$('def').checked;log(defense?'Defense ENABLED: sequence + freshness checks active.':'WARNING: Defense DISABLED — server accepts everything!',defense?'success':'warn');if(!defense)alertT=0;badge()}
+function resetSim(){seq=lastSeq=100;actual=srv=dA=dS=3.8;cap=null;replay=false;alertT=0;packets=[];parts=[];rings=[];hist=[];loss=0;blocked=0;$('def').checked=defense=true;$('bRep').disabled=true;$('bStop').disabled=true;$('log').innerHTML='';badge();log('Simulation reset.','info')}
+
+function spawn(){
+  seq++;actual=replay?+(5.5+Math.sin(Date.now()/700)*.4).toFixed(2):+(3.8+Math.sin(Date.now()/1100)*.7).toFixed(2);
+  const n=new Date();mkPacket({type:'legit',power:actual,seq,ts:fmt(n),ms:n.getTime(),path:[MO,GW,LK,SV]});
+  if(replay&&cap)mkPacket({type:'replay',power:cap.power,seq:cap.seq,ts:cap.ts,ms:cap.ms,path:[AT,LK,SV]});
+}
+function burst(x,y,c,n=26){for(let i=0;i<n;i++){const a=Math.random()*6.28,v=60+Math.random()*180;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,c})}rings.push({x,y,r:10,l:1,c})}
+
+function atServer(p){
+  const age=((Date.now()-p.ms)/1000).toFixed(1);
+  if(p.type==='replay'){
+    if(defense&&(p.seq<=lastSeq||Date.now()-p.ms>3500)){
+      alertT=2.5;blocked++;burst(SV.x,SV.y,'#ef4444',40);badge();
+      log('BLOCKED REPLAY: Seq #'+p.seq+' <= LastAccepted #'+lastSeq+' (age '+age+'s) → REPLAY_ATTACK_DETECTED','danger');
+    }else{srv=p.power;burst(SV.x,SV.y,'#f59e0b',30);badge();log('SPOOF ACCEPTED: server believes '+p.power+' kW (real '+actual+' kW). Billing under-reported!','danger')}
+    return;
+  }
+  if(p.seq>lastSeq||!defense){lastSeq=Math.max(lastSeq,p.seq);srv=p.power;burst(SV.x,SV.y,'#10b981',10)}
+}
+
+function gauge(cx,cy,r,v,label,c){
+  [[0,.375,'#10b981'],[.375,.65,'#f59e0b'],[.65,1,'#ef4444']].forEach(s=>{ctx.beginPath();ctx.arc(cx,cy,r,Math.PI+s[0]*Math.PI,Math.PI+s[1]*Math.PI);ctx.lineWidth=r*.24;ctx.strokeStyle=s[2];ctx.globalAlpha=.4;ctx.stroke()});
+  ctx.globalAlpha=1;const a=Math.PI+Math.min(v/8,1)*Math.PI;
+  ctx.save();ctx.shadowColor=c;ctx.shadowBlur=10;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*r*.92,cy+Math.sin(a)*r*.92);ctx.strokeStyle=c;ctx.lineWidth=4;ctx.stroke();ctx.restore();
+  ctx.beginPath();ctx.arc(cx,cy,6,0,6.28);ctx.fillStyle=c;ctx.fill();
+  tx(v.toFixed(2)+' kW',cx,cy+r*.5,'bold '+Math.round(r*.4)+'px Consolas,monospace',c);
+  if(label)tx(label,cx,cy-r-14,'bold 12px Segoe UI,sans-serif','#cbd5e1');
+}
+
+function draw(){
+  ctx.setTransform(sc,0,0,sc,0,0);ctx.clearRect(0,0,W,H);
+  // sky: night -> peak-evening
+  const g=ctx.createLinearGradient(0,0,0,380);
+  g.addColorStop(0,mix([6,11,30],[67,40,110],skyT));g.addColorStop(1,mix([17,28,60],[245,130,60],skyT));
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,380);
+  if(skyT<.6){ctx.globalAlpha=1-skyT*1.5;for(let i=0;i<50;i++){const x=(i*173)%W,y=(i*97)%200;ctx.fillStyle='#fff';ctx.fillRect(x,y,2,2)}ctx.globalAlpha=1;
+    ctx.beginPath();ctx.arc(960,70,28,0,6.28);ctx.fillStyle='#e2e8f0';ctx.fill();ctx.beginPath();ctx.arc(972,62,26,0,6.28);ctx.fillStyle=mix([6,11,30],[67,40,110],skyT);ctx.fill();}
+  else{ctx.save();ctx.shadowColor='#fbbf24';ctx.shadowBlur=50;ctx.beginPath();ctx.arc(960,100+(1-skyT)*60,34,0,6.28);ctx.fillStyle='#fde68a';ctx.fill();ctx.restore()}
+  tx(skyT>.5?'🕖 PEAK HOUR — 7 PM (real load HIGH)':'🌙 NIGHT — 2 AM (low load)',20,30,'bold 15px Segoe UI,sans-serif','#e2e8f0','left');
+  ctx.fillStyle='#0a1226';ctx.fillRect(0,380,W,H-380);ctx.fillStyle='#16233f';ctx.fillRect(0,380,W,10);
+
+  // Wires
+  glow([{x:180,y:300},{x:245,y:300}],'#f59e0b',5);
+  glow([MO,GW],'#00f0ff',4);
+  glow([GW,LK,SV],replay?'#ef4444':'#3b82f6',4);
+  const ac=cap?(replay?'#ef4444':'#a855f7'):'#475569';
+  glow([AT,{x:AT.x-40,y:430},LK],ac,replay?4:2.5,true);
+  for(let i=0;i<5;i++){const k=((t*(.3+actual/8)+i/5)%1);ctx.beginPath();ctx.arc(180+65*k,300,5,0,6.28);ctx.fillStyle='#fde68a';ctx.fill()}
+  tx('AC POWER',212,284,'bold 11px Segoe UI','#fbbf24');tx('TLS / MQTT',455,262,'bold 11px Segoe UI','#00f0ff');tx(replay?'REPLAY INJECTION':'PASSIVE SNIFFING',AT.x-130,420,'bold 12px Segoe UI',replay?'#fca5a5':'#c084fc');
+
+  // House
+  const lit=Math.min(1,actual/6);
+  ctx.fillStyle='#1e293b';ctx.fillRect(40,270,140,110);ctx.beginPath();ctx.moveTo(25,272);ctx.lineTo(110,205);ctx.lineTo(195,272);ctx.closePath();ctx.fillStyle='#7c2d12';ctx.fill();
+  [[55,290],[105,290],[55,330],[105,330]].forEach(w=>{ctx.save();ctx.shadowColor='#fde68a';ctx.shadowBlur=lit*25;ctx.fillStyle=mix([30,64,110],[254,240,138],lit);ctx.fillRect(w[0],w[1],30,28);ctx.restore()});
+  ctx.fillStyle='#431407';ctx.fillRect(146,330,24,50);
+  tx('CONSUMER HOME',110,402,'bold 14px Segoe UI','#f59e0b');tx('Real: '+actual.toFixed(2)+' kW',110,424,'bold 16px Consolas','#fff');
+
+  // Meter
+  rr(245,225,130,155,14,'#0f1c38','#00f0ff',3);tx('SMART METER',310,248,'bold 13px Segoe UI','#00f0ff');
+  gauge(310,330,42,dA,'','#38bdf8');tx('SEQ #'+seq,310,372,'12px Consolas','#94a3b8');
+  tx('SM-04 · LIVE',310,402,'bold 13px Segoe UI','#10b981');
+
+  // Gateway tower
+  ctx.strokeStyle='#60a5fa';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(520,380);ctx.lineTo(540,170);ctx.lineTo(560,380);ctx.moveTo(528,300);ctx.lineTo(552,300);ctx.moveTo(533,230);ctx.lineTo(547,230);ctx.stroke();
+  for(let i=0;i<3;i++){const k=((t*.8+i/3)%1);ctx.beginPath();ctx.arc(540,165,14+k*50,-2.3,-.85);ctx.strokeStyle='rgba(96,165,250,'+(1-k)+')';ctx.lineWidth=3;ctx.stroke()}
+  tx('IoT GATEWAY',540,402,'bold 14px Segoe UI','#60a5fa');tx('Mesh / Cellular · :8883',540,422,'12px Segoe UI','#94a3b8');
+
+  // Server building
+  const ok=alertT<=0,sx=Math.sin(t*60)*(alertT>2?3:0);
+  ctx.save();ctx.translate(sx,0);
+  rr(815,160,170,220,10,'#0d1b2e',ok?'#10b981':'#ef4444',alertT>0?4:3);
+  for(let y=172;y<250;y+=20)for(let x=830;x<970;x+=28){ctx.fillStyle=Math.random()<.002?'#fde68a':'#1e3a5f';ctx.fillRect(x,y,16,10)}
+  gauge(900,335,46,dS,'SERVER SEES',replay&&!defense?'#f59e0b':'#10b981');
+  ctx.restore();
+  // shield
+  ctx.save();ctx.translate(900,120);const sCol=!defense?'#f59e0b':(ok?'#10b981':'#ef4444');ctx.shadowColor=sCol;ctx.shadowBlur=ok?12:35;
+  ctx.beginPath();ctx.moveTo(0,-34);ctx.quadraticCurveTo(34,-28,34,-4);ctx.quadraticCurveTo(30,28,0,42);ctx.quadraticCurveTo(-30,28,-34,-4);ctx.quadraticCurveTo(-34,-28,0,-34);ctx.fillStyle=sCol+'55';ctx.fill();ctx.lineWidth=4;ctx.strokeStyle=sCol;ctx.stroke();
+  tx(!defense?'!':(ok?'✓':'✖'),0,12,'bold 32px Segoe UI',sCol);ctx.restore();
+  tx('DISCOM SERVER',900,402,'bold 14px Segoe UI',ok?'#10b981':'#f87171');
+  tx(defense?'🛡 SEQ + TIME GUARD ON':'⚠ GUARD DISABLED',900,422,'bold 12px Segoe UI',defense?'#10b981':'#f59e0b');
+  tx('Last Seq #'+lastSeq+' · Blocked: '+blocked,900,442,'12px Consolas','#94a3b8');
+
+  // Attacker
+  const hot=replay,ac2=hot?'#ef4444':(cap?'#a855f7':'#64748b');
+  ctx.save();ctx.shadowColor=ac2;ctx.shadowBlur=hot?25:10;
+  ctx.beginPath();ctx.moveTo(AT.x-34,AT.y+80);ctx.lineTo(AT.x,AT.y-12);ctx.lineTo(AT.x+34,AT.y+80);ctx.closePath();ctx.fillStyle='#1b1126';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=ac2;ctx.stroke();
+  ctx.beginPath();ctx.arc(AT.x,AT.y-22,18,0,6.28);ctx.fillStyle='#0b0713';ctx.fill();ctx.stroke();
+  ctx.fillStyle=hot?'#ef4444':'#a855f7';ctx.fillRect(AT.x-9,AT.y-26,5,5);ctx.fillRect(AT.x+4,AT.y-26,5,5);ctx.restore();
+  ctx.fillStyle='#1e293b';ctx.fillRect(AT.x-30,AT.y+28,60,34);ctx.strokeStyle=ac2;ctx.lineWidth=2;ctx.strokeRect(AT.x-30,AT.y+28,60,34);
+  ctx.strokeStyle=ac2;ctx.beginPath();ctx.moveTo(AT.x+30,AT.y+28);ctx.lineTo(AT.x+44,AT.y-40);ctx.stroke();
+  if(cap)for(let i=0;i<3;i++){const k=((t*.9+i/3)%1);ctx.beginPath();ctx.arc(AT.x+44,AT.y-40,8+k*40,-2.4,-.7);ctx.strokeStyle=ac2;ctx.globalAlpha=1-k;ctx.lineWidth=3;ctx.stroke();ctx.globalAlpha=1}
+  tx('MITM ATTACKER',AT.x,AT.y+104,'bold 14px Segoe UI',hot?'#f87171':'#c084fc');
+  // buffer card
+  rr(895,470,185,110,12,'#1b1126',ac2,2.5);tx('ATTACKER BUFFER',987,494,'bold 12px Segoe UI','#c084fc');
+  if(cap){tx(cap.power+' kW',987,530,'bold 26px Consolas','#fff');tx('Seq #'+cap.seq+' · '+cap.ts,987,552,'12px Consolas','#e2e8f0');tx(hot?'⚡ REPLAYING':'✔ CAPTURED',987,572,'bold 12px Segoe UI',hot?'#ef4444':'#a855f7')}
+  else tx('[ EMPTY ]',987,540,'bold 18px Consolas','#64748b');
+
+  // Chart
+  rr(20,452,570,176,12,'#080e1e','#1e2f56',2);
+  tx('POWER: REAL vs REPORTED TO SERVER (kW)',34,474,'bold 12px Segoe UI','#94a3b8','left');
+  const cx0=40,cy0=612,cw=540,ch=120,Y=v=>cy0-v/8*ch,X=i=>cx0+i/119*cw;
+  ctx.strokeStyle='#1e2f56';ctx.lineWidth=1;for(let v=0;v<=8;v+=2){ctx.beginPath();ctx.moveTo(cx0,Y(v));ctx.lineTo(cx0+cw,Y(v));ctx.stroke()}
+  if(hist.length>1){
+    ctx.beginPath();hist.forEach((h,i)=>ctx.lineTo(X(i),Y(h.a)));for(let i=hist.length-1;i>=0;i--)ctx.lineTo(X(i),Y(Math.min(hist[i].s,hist[i].a)));ctx.closePath();ctx.fillStyle='rgba(239,68,68,.4)';ctx.fill();
+    [['a','#00f0ff'],['s','#10b981']].forEach(([k,c])=>{ctx.beginPath();hist.forEach((h,i)=>i?ctx.lineTo(X(i),Y(h[k])):ctx.moveTo(X(i),Y(h[k])));ctx.strokeStyle=c;ctx.lineWidth=3;ctx.stroke()});
+  }
+  tx('— Real',440,474,'bold 12px Segoe UI','#00f0ff','left');tx('— Server',500,474,'bold 12px Segoe UI','#10b981','left');
+  tx('UNBILLED: '+loss.toFixed(2)+' kWh ≈ ₹'+(loss*8).toFixed(0),580,502,'bold 16px Consolas',loss>.05?'#f87171':'#64748b','right');
+
+  // Packets
+  packets.forEach(p=>{
+    const a=p.path[p.i],b=p.path[p.i+1];if(!b)return;
+    const x=lerp(a.x,b.x,p.u),y=lerp(a.y,b.y,p.u),rep=p.type==='replay',cl=p.type==='clone',col=rep?'#ef4444':(cl?'#a855f7':'#00f0ff');
+    ctx.save();ctx.globalAlpha=cl?.75:1;ctx.shadowColor=col;ctx.shadowBlur=18;
+    rr(x-62,y-27,124,54,9,rep?'#450a0a':(cl?'#2e1065':'#082f49'),col,2.5);ctx.shadowBlur=0;
+    ctx.beginPath();ctx.moveTo(x-62,y-27);ctx.lineTo(x,y);ctx.lineTo(x+62,y-27);ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+    tx((rep?'♻ ':'🔒 ')+'#'+p.seq,x,y+6,'bold 13px Consolas','#fff');tx(p.power+' kW · '+p.ts,x,y+21,'10px Consolas',rep?'#fca5a5':'#bae6fd');ctx.restore();
+  });
+  parts.forEach(p=>{ctx.globalAlpha=Math.max(p.l,0);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,4,0,6.28);ctx.fill()});
+  rings.forEach(r=>{ctx.globalAlpha=Math.max(r.l,0);ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,6.28);ctx.strokeStyle=r.c;ctx.lineWidth=5;ctx.stroke()});
+  ctx.globalAlpha=1;
+
+  // banner
+  if(alertT>0){ctx.globalAlpha=.75+Math.sin(t*14)*.2;rr(250,50,600,46,10,'#7f1d1d','#fca5a5',3);tx('🚨 REPLAY_ATTACK_DETECTED — PACKET REJECTED',550,81,'bold 20px Segoe UI','#fff');ctx.globalAlpha=1}
+  else if(replay&&!defense){rr(250,50,600,46,10,'#78350f','#fbbf24',3);tx('⚠ SERVER SPOOFED — BILLING UNDER-REPORTED',550,81,'bold 20px Segoe UI','#fff')}
+}
+
+function step(dt){
+  t+=dt;skyT=lerp(skyT,replay?1:0,dt*1.2);
+  dA=lerp(dA,actual,dt*3);dS=lerp(dS,srv,dt*3);
+  spawnAcc+=dt;if(spawnAcc>1.6){spawnAcc=0;spawn()}
+  histAcc+=dt;if(histAcc>.4){histAcc=0;hist.push({a:actual,s:srv});if(hist.length>120)hist.shift()}
+  loss+=Math.max(0,actual-srv)*dt/60;
+  if(alertT>0){alertT-=dt;if(alertT<=0)badge()}
+  for(let k=packets.length-1;k>=0;k--){
+    const p=packets[k],a=p.path[p.i],b=p.path[p.i+1],len=Math.hypot(b.x-a.x,b.y-a.y)||1;
+    p.u+=dt*230/len;
+    if(p.u>=1){p.i++;p.u=0;
+      if(p.sniff&&p.path[p.i]===LK){mkPacket({type:'clone',power:p.power,seq:p.seq,ts:p.ts,ms:p.ms,path:[LK,AT]});p.sniff=false}
+      if(p.i>=p.path.length-1){if(p.type!=='clone')atServer(p);packets.splice(k,1)}}
+  }
+  parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.l-=dt*1.4});parts=parts.filter(p=>p.l>0);
+  rings.forEach(r=>{r.r+=dt*140;r.l-=dt*1.5});rings=rings.filter(r=>r.l>0);
+}
+function loop(ts){const dt=Math.min((ts-last)/1000||0,.05);last=ts;if(!paused)step(dt);draw();requestAnimationFrame(loop)}
+log('System initialized. Smart Meter SM-04 streaming authenticated telemetry.','success');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
