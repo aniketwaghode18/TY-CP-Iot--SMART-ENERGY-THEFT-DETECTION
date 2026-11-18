@@ -8,6 +8,9 @@ import {
   Clock,
   RefreshCw,
   LineChart as LineChartIcon,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Network,
   Check,
   AlertTriangle,
   AlertOctagon,
@@ -28,13 +31,17 @@ import {
   CheckCircle2,
   XCircle,
   Timer,
-  LayoutDashboard,
   Award,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
   Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -174,7 +181,7 @@ const MAX_ALERTS_DISPLAY = 40;
 
 export default function App() {
   // Navigation: 'dashboard' | 'testbench'
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'testbench'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'defense' | 'dashboard' | 'testbench' | 'smartgrid' | 'dos' | 'replay' | 'coordinated'>('defense');
 
   const [telemetry, setTelemetry] = useState<TelemetryMessage | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
@@ -602,6 +609,22 @@ export default function App() {
 
   const criticalCount = alerts.filter((a) => a.severity === 'CRITICAL').length;
   const warningCount = alerts.filter((a) => a.severity === 'WARNING').length;
+  const alertChartData = [
+    { name: 'Critical', value: criticalCount, color: '#fb7185' },
+    { name: 'Warning', value: warningCount, color: '#fbbf24' },
+  ].filter((item) => item.value > 0);
+
+  const meterComparisonData = consumerMeters.map((meter) => ({
+    name: meter.meter_id.replace('meter_', 'M'),
+    reported: Number(meter.reported.active_power.toFixed(1)),
+    groundTruth: Number(meter.ground_truth.active_power.toFixed(1)),
+  }));
+  const totalReportedPower = consumerMeters.reduce((sum, meter) => sum + meter.reported.active_power, 0);
+  const totalGroundTruthPower = consumerMeters.reduce((sum, meter) => sum + meter.ground_truth.active_power, 0);
+  const powerGap = Math.max(0, totalGroundTruthPower - totalReportedPower);
+  const gridHealth = totalGroundTruthPower > 0
+    ? Math.max(0, Math.min(100, 100 - (powerGap / totalGroundTruthPower) * 100))
+    : 100;
 
   // Test bench statistics
   const testResultsList = Object.values(testResults);
@@ -668,31 +691,59 @@ export default function App() {
           {/* Navigation Tab Selector */}
           <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800">
             <button
-              onClick={() => setActiveTab('dashboard')}
+              onClick={() => setActiveTab('defense')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                activeTab === 'dashboard'
+                activeTab === 'defense'
                   ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Live Dashboard
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Defense Engine
             </button>
             <button
-              onClick={() => setActiveTab('testbench')}
+              onClick={() => setActiveTab('smartgrid')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                activeTab === 'testbench'
-                  ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
+                activeTab === 'smartgrid'
+                  ? 'bg-gradient-to-r from-purple-500 to-cyan-500 text-slate-950 font-bold shadow-md shadow-purple-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <FlaskConical className="w-3.5 h-3.5" />
-              Test Bench (Viva)
-              {passedTestsCount > 0 && (
-                <span className="bg-emerald-950 text-emerald-300 text-[10px] px-1.5 py-0.2 rounded font-mono border border-emerald-700">
-                  {passedTestsCount}/{totalTestsCount}
-                </span>
-              )}
+              <Network className="w-3.5 h-3.5" />
+              Smart Grid Lab
+            </button>
+            <button
+              onClick={() => setActiveTab('dos')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                activeTab === 'dos'
+                  ? 'bg-gradient-to-r from-rose-500 to-orange-500 text-slate-950 font-bold shadow-md shadow-rose-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Bug className="w-3.5 h-3.5" />
+              DoS Attack
+            </button>
+            <button
+              onClick={() => setActiveTab('replay')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                activeTab === 'replay'
+                  ? 'bg-gradient-to-r from-fuchsia-500 to-cyan-500 text-slate-950 font-bold shadow-md shadow-fuchsia-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Replay Attack
+            </button>
+            <button
+              onClick={() => setActiveTab('coordinated')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                activeTab === 'coordinated'
+                  ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              Coordinated FDI
             </button>
           </div>
 
@@ -969,6 +1020,157 @@ export default function App() {
         {/* ========================================================= */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-fadeIn">
+            {/* Visual System Overview */}
+            <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+              <div className="xl:col-span-8 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  {
+                    label: 'Grid Health',
+                    value: `${gridHealth.toFixed(0)}%`,
+                    detail: powerGap > 1 ? `${powerGap.toFixed(0)} W discrepancy` : 'Within tolerance',
+                    icon: ShieldCheck,
+                    color: gridHealth < 95 ? 'text-amber-400' : 'text-emerald-400',
+                    border: gridHealth < 95 ? 'border-amber-500/30' : 'border-emerald-500/30',
+                  },
+                  {
+                    label: 'Live Consumer Load',
+                    value: `${(totalReportedPower / 1000).toFixed(2)} kW`,
+                    detail: `${consumerMeters.length} meters reporting`,
+                    icon: Zap,
+                    color: 'text-cyan-400',
+                    border: 'border-cyan-500/30',
+                  },
+                  {
+                    label: 'Active Attacks',
+                    value: activeAttacksCount.toString(),
+                    detail: activeAttacksCount ? 'Investigation required' : 'No active mutations',
+                    icon: Flame,
+                    color: activeAttacksCount ? 'text-rose-400' : 'text-slate-400',
+                    border: activeAttacksCount ? 'border-rose-500/30' : 'border-slate-700',
+                  },
+                  {
+                    label: 'Security Alerts',
+                    value: alerts.length.toString(),
+                    detail: `${criticalCount} critical · ${warningCount} warning`,
+                    icon: ShieldAlert,
+                    color: criticalCount ? 'text-rose-400' : 'text-emerald-400',
+                    border: criticalCount ? 'border-rose-500/30' : 'border-emerald-500/30',
+                  },
+                ].map((kpi) => {
+                  const Icon = kpi.icon;
+                  return (
+                    <div key={kpi.label} className={`bg-[#0d1424] border ${kpi.border} rounded-2xl p-4 shadow-lg`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">{kpi.label}</span>
+                        <Icon className={`w-4 h-4 ${kpi.color}`} />
+                      </div>
+                      <div className={`text-2xl font-bold font-mono ${kpi.color}`}>{kpi.value}</div>
+                      <p className="text-[10px] text-slate-500 mt-1 truncate">{kpi.detail}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="xl:col-span-4 bg-gradient-to-br from-[#0c1829] to-[#0d1424] border border-cyan-500/25 rounded-2xl p-4 shadow-lg">
+                <div className="flex items-center gap-2 mb-4">
+                  <Network className="w-4 h-4 text-cyan-400" />
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Smart Grid Flow</h2>
+                    <p className="text-[10px] text-slate-500">Physical energy vs reported telemetry</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-1 text-center">
+                  <div className="flex-1">
+                    <div className="mx-auto w-11 h-11 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-center">
+                      <Radio className="w-5 h-5 text-cyan-400" />
+                    </div>
+                    <p className="text-[10px] text-slate-300 mt-2">Master Feeder</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-cyan-500/60" />
+                  <div className="flex-1">
+                    <div className="mx-auto w-11 h-11 rounded-xl bg-indigo-500/15 border border-indigo-500/40 flex items-center justify-center">
+                      <Cpu className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <p className="text-[10px] text-slate-300 mt-2">5 Smart Meters</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-cyan-500/60" />
+                  <div className="flex-1">
+                    <div className="mx-auto w-11 h-11 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-center">
+                      <ShieldAlert className="w-5 h-5 text-rose-400" />
+                    </div>
+                    <p className="text-[10px] text-slate-300 mt-2">Detection Engine</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Comparative Visual Analytics */}
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 bg-[#0d1424] border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <div className="flex items-center gap-2 mb-4">
+                  <BarChart3 className="w-4 h-4 text-amber-400" />
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Meter Power Comparison</h2>
+                    <p className="text-[10px] text-slate-500">Ground truth and reported load by consumer meter</p>
+                  </div>
+                </div>
+                <div className="h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={meterComparisonData} barGap={5} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f293d" vertical={false} />
+                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
+                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} unit=" W" />
+                      <Tooltip
+                        contentStyle={{ background: '#0b101b', border: '1px solid #334155', borderRadius: '10px', fontSize: '11px' }}
+                        formatter={(value, name) => [
+                          `${Number(value ?? 0).toFixed(1)} W`,
+                          String(name) === 'groundTruth' ? 'Ground Truth' : 'Reported',
+                        ]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Bar name="Ground Truth" dataKey="groundTruth" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                      <Bar name="Reported" dataKey="reported" fill="#fbbf24" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-[#0d1424] border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <PieChartIcon className="w-4 h-4 text-rose-400" />
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Alert Severity</h2>
+                    <p className="text-[10px] text-slate-500">Current detection events</p>
+                  </div>
+                </div>
+                <div className="h-52 relative">
+                  {alerts.length > 0 ? (
+                    <>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={alertChartData} dataKey="value" nameKey="name" innerRadius={52} outerRadius={76} paddingAngle={4} stroke="none">
+                            {alertChartData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ background: '#0b101b', border: '1px solid #334155', borderRadius: '10px', fontSize: '11px' }}
+                          />
+                          <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: '11px' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-5">
+                        <span className="text-xl font-bold font-mono text-white">{alerts.length}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                      <ShieldCheck className="w-8 h-8 text-emerald-400 mb-2" />
+                      <span className="text-xs">No alerts detected</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
             {/* Attack Control Panel */}
             <section className="bg-gradient-to-br from-[#131b2e] via-[#0f172a] to-[#141a29] border border-rose-500/40 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
@@ -1691,6 +1893,61 @@ export default function App() {
                 })}
               </div>
             </section>
+          </div>
+        )}
+
+        {activeTab === 'defense' && (
+          <div className="animate-fadeIn -mx-6 -mt-6">
+            <iframe
+              title="CP-SETD Defense Engine"
+              src="/defense-engine.html"
+              className="w-full border-0 bg-[#0b1220]"
+              style={{ height: 'calc(100vh - 118px)', minHeight: '720px' }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'smartgrid' && (
+          <div className="animate-fadeIn -mx-6 -mt-6">
+            <iframe
+              title="Smart Grid Theft Lab"
+              src="/smart-grid.html"
+              className="w-full border-0 bg-[#0b1120]"
+              style={{ height: 'calc(100vh - 118px)', minHeight: '720px' }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'dos' && (
+          <div className="animate-fadeIn -mx-6 -mt-6">
+            <iframe
+              title="DoS Attack and Telemetry Disruption"
+              src="/dos_attack.html"
+              className="w-full border-0 bg-[#050a1c]"
+              style={{ height: 'calc(100vh - 118px)', minHeight: '720px' }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'replay' && (
+          <div className="animate-fadeIn -mx-6 -mt-6">
+            <iframe
+              title="IoT Smart Grid Replay Attack Simulation"
+              src="/replay-attack.html"
+              className="w-full border-0 bg-[#070b14]"
+              style={{ height: 'calc(100vh - 118px)', minHeight: '720px' }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'coordinated' && (
+          <div className="animate-fadeIn -mx-6 -mt-6">
+            <iframe
+              title="Coordinated FDI Dashboard"
+              src="/coordinated-fdi.html"
+              className="w-full border-0 bg-[#070b14]"
+              style={{ height: 'calc(100vh - 118px)', minHeight: '720px' }}
+            />
           </div>
         )}
       </main>

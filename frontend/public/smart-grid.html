@@ -1,0 +1,663 @@
+<title>Smart Grid Theft Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: one wide zoomable canvas (transformer > feeder + 5 houses > DISCOM), then controls, then DISCOM dashboard.
+   Single deliberate dark look: slate-blue ground, gold power, cyan data, emerald healthy, crimson/magenta attack. */
+:root{
+  color-scheme:dark;
+  --bg:#0b1120; --panel:#101a31; --panel2:#15213f; --line:#25335a;
+  --fg:#e8eefb; --muted:#93a4c6;
+  --gold:#fbbf24; --amber:#f59e0b; --cyan:#38bdf8; --teal:#06b6d4;
+  --green:#10b981; --red:#ef4444; --pink:#ec4899;
+  --display:'Space Grotesk',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{
+  margin:0;color:var(--fg);font:15px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--bg);
+  padding-block:18px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.top{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:flex-end;justify-content:space-between}
+h1{font:700 clamp(24px,4vw,34px)/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.top p{margin:6px 0 0;color:var(--muted);max-width:62ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:0;padding:0}
+.legend li{display:flex;align-items:center;gap:8px;font:500 12px var(--mono);color:var(--muted);padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.stage{position:relative;height:clamp(380px,66vh,760px);border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg)}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline:none}
+canvas.drag{cursor:grabbing}
+canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--cyan)}
+.tools{position:absolute;top:12px;right:12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 24px)}
+.tools button{font:700 18px var(--mono);min-width:46px;height:44px;padding:0 14px;color:var(--fg);background:rgba(16,26,49,.92);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.tools button:hover{border-color:var(--cyan);color:var(--cyan)}
+.tools button.focus{font-size:14px;color:#1a0a10;background:var(--pink);border-color:var(--pink)}
+.tools button.focus:hover{color:#1a0a10;filter:brightness(1.1)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.hint{position:absolute;left:12px;bottom:10px;font:500 12px var(--mono);color:var(--muted);background:rgba(11,17,32,.75);padding:3px 8px;border-radius:6px;pointer-events:none;max-width:calc(100% - 24px)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+h2{font:700 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.pill{font:700 15px var(--display);padding:10px 18px;border-radius:999px;border:2px solid var(--c);color:var(--c);background:transparent;cursor:pointer}
+.pill[aria-pressed=true]{background:var(--c);color:#0b1120}
+.atk{flex:1 1 200px;text-align:left;padding:12px 14px;border-radius:12px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 12%,var(--panel));color:var(--fg);cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.atk b{font:700 16px var(--display);color:var(--c)}
+.atk span{font-size:13px;color:var(--muted)}
+.atk[aria-pressed=true]{background:var(--c)}
+.atk[aria-pressed=true] b,.atk[aria-pressed=true] span{color:#0b1120}
+.sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px 28px}
+.sl label{display:flex;justify-content:space-between;font:700 14px var(--display);margin-bottom:6px}
+.sl output{font-family:var(--mono);color:var(--gold)}
+.sl input{width:100%;height:28px;margin:0}
+.sel{font:500 13px var(--mono);color:var(--muted)}
+.sel b{color:var(--fg)}
+.banner{border-radius:12px;padding:14px 16px;border:2px solid var(--green);background:color-mix(in srgb,var(--green) 14%,var(--panel));display:flex;flex-direction:column;gap:4px}
+.banner strong{font:700 clamp(17px,2.4vw,22px) var(--display);letter-spacing:.02em}
+.banner span{color:var(--fg);opacity:.9}
+.banner.warn{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,var(--panel))}
+.banner.alert{border-color:var(--red);background:color-mix(in srgb,var(--red) 22%,var(--panel));animation:flash 1s ease-in-out infinite}
+@keyframes flash{50%{background:color-mix(in srgb,var(--red) 45%,var(--panel));box-shadow:0 0 24px rgba(239,68,68,.45)}}
+@media (prefers-reduced-motion:reduce){.banner.alert{animation:none}}
+.eb{display:flex;flex-direction:column;gap:8px}
+.bar{position:relative;display:flex;height:44px;border-radius:10px;overflow:hidden;background:var(--panel2);border:1px solid var(--line)}
+.bar i{display:block;height:100%;transition:width .35s}
+.lim{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--fg);left:95%}
+.limlab{position:absolute;left:95%;top:-22px;transform:translateX(-50%);font:700 11px var(--mono);color:var(--muted);white-space:nowrap}
+.bwrap{position:relative;padding-top:20px}
+.keys{display:flex;flex-wrap:wrap;gap:6px 20px;font:500 13px var(--mono)}
+.keys span{display:flex;align-items:center;gap:7px}
+.keys b{color:var(--fg)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font:500 14px var(--mono);min-width:640px}
+th{font:700 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:right;padding:6px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+td:first-child{font-family:var(--display);font-weight:700}
+.chip{display:inline-block;font:700 12px var(--mono);padding:3px 10px;border-radius:999px;border:1px solid var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.mis{color:var(--red)}
+.note{margin:0;font-size:13px;color:var(--muted);max-width:90ch}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Smart Grid Theft Lab</h1>
+      <p>One feeder, five homes, one DISCOM. Tamper with a meter, spoof its data or hook a bypass wire, then see whether the energy balance catches it.</p>
+    </div>
+    <ul class="legend" aria-label="Colour key">
+      <li><span class="dot" style="background:var(--gold)"></span>Power</li>
+      <li><span class="dot" style="background:var(--cyan)"></span>Meter data</li>
+      <li><span class="dot" style="background:var(--green)"></span>Balanced</li>
+      <li><span class="dot" style="background:var(--red)"></span>Attack</li>
+    </ul>
+  </header>
+
+  <section class="stage" id="stage" aria-label="Interactive grid diagram">
+    <canvas id="cv" tabindex="0" aria-label="Smart grid diagram. Drag to pan, scroll to zoom."></canvas>
+    <div class="tools">
+      <button id="zin" aria-label="Zoom in">+</button>
+      <button id="zout" aria-label="Zoom out">&minus;</button>
+      <button id="zreset" aria-label="Reset view">100%</button>
+      <button id="zfocus" class="focus">Focus Attack</button>
+    </div>
+    <div class="hint" id="hint">Scroll to zoom, drag to pan</div>
+  </section>
+
+  <section class="panel" aria-label="Controls">
+    <h2>1 &middot; Pick a house</h2>
+    <div class="row" id="targets"></div>
+    <h2>2 &middot; Apply a scenario to it</h2>
+    <div class="row" id="attacks"></div>
+    <div class="sel" id="sel"></div>
+    <div class="sliders">
+      <div class="sl"><label for="steal">Stolen power <output id="stealO">75%</output></label><input id="steal" type="range" min="10" max="90" step="5" value="75" style="accent-color:var(--pink)"></div>
+      <div class="sl"><label for="load">Neighbourhood load <output id="loadO">100%</output></label><input id="load" type="range" min="50" max="150" step="5" value="100" style="accent-color:var(--gold)"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="DISCOM dashboard">
+    <h2>DISCOM detection dashboard</h2>
+    <div class="banner" id="banner" role="status"><strong id="bt"></strong><span id="bd"></span></div>
+    <div class="eb">
+      <div id="ebTitle" style="font:700 15px var(--display)"></div>
+      <div class="bwrap">
+        <span class="limlab">5% limit</span><span class="lim"></span>
+        <div class="bar"><i id="sRep" style="background:var(--cyan)"></i><i id="sLoss" style="background:var(--amber)"></i><i id="sTheft" style="background:var(--red)"></i></div>
+      </div>
+      <div class="keys">
+        <span><span class="dot" style="background:var(--cyan)"></span>Reported by meters <b id="kRep"></b></span>
+        <span><span class="dot" style="background:var(--amber)"></span>Normal line loss <b id="kLoss"></b></span>
+        <span><span class="dot" style="background:var(--red)"></span>Unexplained <b id="kTheft"></b></span>
+      </div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Consumer</th><th>Actual load</th><th>Meter reading</th><th>DISCOM received</th><th>Status</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="note">Status shows what the simulation is doing to each home. The DISCOM cannot see it. It only sees the feeder imbalance, so a bypass, a spoof and a tampered meter look the same from its side.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d'), stage = $('#stage');
+const W = 1800, H = 940;
+const COL = {gold:'#fbbf24', amber:'#f59e0b', cyan:'#38bdf8', teal:'#06b6d4', green:'#10b981', red:'#ef4444', pink:'#ec4899', bg:'#0b1120'};
+const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+const DISP = '"Space Grotesk", system-ui, sans-serif';
+const BASE = [1.8, 2.4, 1.4, 3.0, 2.1];
+const WALL = ['#f97316', '#8b5cf6', '#14b8a6', '#ec4899', '#3b82f6'];
+const ATK = {
+  bypass:{name:'Meter Bypass', short:'Bypass', c:'#ef4444', sub:'Illegal hook around the meter'},
+  spoof:{name:'Cyber Data Spoofing', short:'Spoofed', c:'#ec4899', sub:'Hacker rewrites packets in flight'},
+  tamper:{name:'Physical Meter Tampering', short:'Tampered', c:'#f59e0b', sub:'Meter slowed down by hand'}
+};
+const ROW = i => 165 + i * 160;
+const FY = 485, BUS = 500, MX = 600, MW = 150, HX = 810, HW = 250, DX = 1440;
+const DY = i => 350 + i * 50;
+const HACK_T = 0.46;
+const LINE_LOSS = 0.02, LIMIT = 0.05;
+
+const st = {target:2, steal:0.75, lf:1, lfS:1, t:0, cycle:0};
+const houses = BASE.map((b, i) => ({
+  i, base:b, attack:null, act:b, meter:b, vm:230, am:0, rx:b, rxAct:b,
+  packets:[], nextSend:0.2 + i * 0.3, sparks:[], flash:0
+}));
+houses[2].attack = 'bypass';
+
+/* ---------- geometry helpers ---------- */
+function mkPath(pts){
+  const seg = []; let L = 0;
+  for (let i = 1; i < pts.length; i++){ const d = Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); seg.push(d); L += d; }
+  return {pts, seg, L};
+}
+function at(p, d){
+  for (let i = 0; i < p.seg.length; i++){
+    if (d <= p.seg[i] || i === p.seg.length - 1){
+      const f = Math.max(0, Math.min(1, d / p.seg[i]));
+      return [p.pts[i][0] + (p.pts[i+1][0]-p.pts[i][0])*f, p.pts[i][1] + (p.pts[i+1][1]-p.pts[i][1])*f];
+    }
+    d -= p.seg[i];
+  }
+}
+houses.forEach(h => {
+  const y = ROW(h.i);
+  h.feed = mkPath([[300,FY],[BUS,FY],[BUS,y],[540,y]]);
+  h.thru = mkPath([[540,y],[MX,y],[MX+MW,y],[HX,y]]);
+  h.byp = mkPath([[540,y],[540,y+68],[790,y+68],[790,y+30],[HX,y+30]]);
+  const x0 = MX + MW - 20, y0 = y - 70;
+  h.p0 = [x0, y0]; h.p1 = [x0 + 140, y0 - 110];
+  h.p2 = [DX - 280, DY(h.i) - 150]; h.p3 = [DX, DY(h.i)];
+});
+function bez(h, t){
+  const u = 1 - t, a = u*u*u, b = 3*u*u*t, c = 3*u*t*t, d = t*t*t;
+  return [a*h.p0[0]+b*h.p1[0]+c*h.p2[0]+d*h.p3[0], a*h.p0[1]+b*h.p1[1]+c*h.p2[1]+d*h.p3[1]];
+}
+
+/* ---------- drawing helpers ---------- */
+function rr(x, y, w, h, r){ ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function txt(s, x, y, size, color, align, weight, font){
+  ctx.font = (weight || 700) + ' ' + size + 'px ' + (font || MONO);
+  ctx.fillStyle = color; ctx.textAlign = align || 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(s, x, y);
+}
+function pill(label, cx, cy, color, size){
+  ctx.font = '700 ' + size + 'px ' + MONO;
+  const w = ctx.measureText(label).width + 20, h = size + 10;
+  rr(cx - w/2, cy - h/2, w, h, h/2); ctx.fillStyle = color; ctx.fill();
+  txt(label, cx, cy + size*0.35, size, '#fff', 'center');
+}
+function glowLine(pts, color, w, blur, alpha){
+  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+  ctx.shadowColor = color; ctx.shadowBlur = blur; ctx.strokeStyle = color; ctx.lineWidth = w;
+  ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke();
+  ctx.restore();
+}
+function orbs(path, speed, color, spacing, r){
+  const off = (st.t * speed) % spacing;
+  for (let d = off; d < path.L; d += spacing){
+    const p = at(path, d);
+    ctx.globalAlpha = .28; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p[0], p[1], r*2, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1; ctx.fillStyle = '#fff6d6'; ctx.beginPath(); ctx.arc(p[0], p[1], r*.55, 0, 7); ctx.fill();
+    ctx.fillStyle = color; ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.globalAlpha = .75; ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---------- model ---------- */
+const calc = {tx:0, txAl:0, rxSum:0, unacc:0, pct:0, curr:0};
+function update(dt){
+  st.t += dt;
+  st.lfS += (st.lf - st.lfS) * Math.min(1, dt * 3);
+  houses.forEach(h => {
+    h.act = h.base * st.lfS * (1 + 0.06 * Math.sin(st.t * 0.6 + h.i * 1.7));
+    const slow = (h.attack === 'bypass' || h.attack === 'tamper') ? 1 - st.steal : 1;
+    h.meter = h.act * slow;
+    h.vm = (230 - 0.9 * h.act) * (h.attack === 'tamper' ? 1 - 0.3 * st.steal : 1);
+    h.am = h.meter * 1000 / (h.vm * 0.95);
+    h.nextSend -= dt;
+    if (h.nextSend <= 0){
+      h.nextSend = 1.5;
+      const spoof = h.attack === 'spoof';
+      h.packets.push({t:0, dur:3.2, val:h.meter, fake:h.act * (1 - st.steal), act:h.act, spoof});
+    }
+    for (let k = h.packets.length - 1; k >= 0; k--){
+      const p = h.packets[k]; p.t += dt / p.dur;
+      if (p.t >= 1){ h.rx = p.spoof ? p.fake : p.val; h.rxAct = p.act; h.flash = 1; h.packets.splice(k, 1); }
+    }
+    h.flash = Math.max(0, h.flash - dt * 3);
+    if (h.attack === 'tamper' && Math.random() < 0.4){
+      const y = ROW(h.i), a = Math.random() * 6.28;
+      h.sparks.push({x:MX + Math.random()*MW, y:y - 56 + Math.random()*112, vx:Math.cos(a)*90, vy:Math.sin(a)*90, life:.35});
+    }
+    h.sparks = h.sparks.filter(s => (s.life -= dt) > 0);
+    h.sparks.forEach(s => { s.x += s.vx * dt; s.y += s.vy * dt; });
+  });
+  calc.tx = houses.reduce((a, h) => a + h.act, 0) * (1 + LINE_LOSS);
+  calc.curr = calc.tx * 1000 / (230 * 0.95);
+  calc.txAl = houses.reduce((a, h) => a + h.rxAct, 0) * (1 + LINE_LOSS);
+  calc.rxSum = houses.reduce((a, h) => a + h.rx, 0);
+  calc.unacc = calc.txAl - calc.rxSum;
+  calc.pct = calc.unacc / calc.txAl;
+}
+
+/* ---------- scene ---------- */
+function drawBackground(){
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#111c38'); g.addColorStop(1, '#0d1530');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(120,150,220,.08)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let x = 0; x <= W; x += 60){ ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = 0; y <= H; y += 60){ ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(120,150,220,.35)'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, W - 2, H - 2);
+  txt('SUBSTATION', 40, 44, 20, '#5d70a0'); txt('DISTRIBUTION FEEDER', BUS - 10, 44, 20, '#5d70a0');
+  txt('DISCOM', DX, 44, 20, '#5d70a0');
+}
+
+function drawTransformer(){
+  const x = 50, y = 350, w = 250, h = 300;
+  txt('DISTRIBUTION TRANSFORMER', x, 300, 17, COL.gold);
+  txt('11 kV / 230 V', x, 322, 14, '#93a4c6', 'left', 500);
+  // bushings
+  [105, 175, 245].forEach(bx => {
+    rr(bx - 9, 300 + 12, 18, 40, 4); ctx.fillStyle = '#cbd5e1'; ctx.fill();
+  });
+  // tank
+  rr(x, y, w, h, 16);
+  const g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, '#334155'); g.addColorStop(1, '#1e293b');
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = '#64748b'; ctx.lineWidth = 3; ctx.stroke();
+  // animated cooling fins
+  for (let k = 0; k < 9; k++){
+    const fx = x + 16 + k * 26, s = .5 + .5 * Math.sin(st.t * 2.2 - k * .7);
+    rr(fx, y + 14, 14, 110, 6);
+    ctx.fillStyle = `rgba(56,189,248,${.18 + .5 * s})`; ctx.fill();
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  // gauge
+  const cx = x + w/2, cy = y + 188, r = 46;
+  ctx.beginPath(); ctx.arc(cx, cy, r + 6, 0, 7); ctx.fillStyle = '#0b1120'; ctx.fill();
+  ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.strokeStyle = '#243253';
+  ctx.beginPath(); ctx.arc(cx, cy, r, .75*Math.PI, 2.25*Math.PI); ctx.stroke();
+  const f = Math.max(0, Math.min(1, calc.tx / 16));
+  ctx.strokeStyle = COL.amber; ctx.shadowColor = COL.amber; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.arc(cx, cy, r, .75*Math.PI, (.75 + 1.5*f)*Math.PI); ctx.stroke(); ctx.shadowBlur = 0;
+  const ang = (.75 + 1.5*f) * Math.PI;
+  ctx.strokeStyle = COL.gold; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang)*(r-12), cy + Math.sin(ang)*(r-12)); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, 6, 0, 7); ctx.fillStyle = COL.gold; ctx.fill();
+  // readouts
+  rr(x + 14, y + 248, w - 28, 44, 8); ctx.fillStyle = '#0b1120'; ctx.fill();
+  txt('FEEDER LOAD', x + 24, y + 266, 12, '#93a4c6', 'left', 500);
+  txt(calc.tx.toFixed(1) + ' kW', x + w - 24, y + 268, 18, COL.gold, 'right');
+  txt('CURRENT', x + 24, y + 284, 12, '#93a4c6', 'left', 500);
+  txt(calc.curr.toFixed(1) + ' A', x + w - 24, y + 286, 16, COL.amber, 'right');
+  // output terminal
+  rr(x + w - 4, FY - 14, 18, 28, 4); ctx.fillStyle = COL.gold; ctx.fill();
+}
+
+function drawWires(){
+  // feeder + busbar
+  const top = ROW(0), bot = ROW(4);
+  glowLine([[300,FY],[BUS,FY]], COL.gold, 14, 18, .9);
+  glowLine([[BUS,top],[BUS,bot]], COL.gold, 12, 18, .9);
+  ctx.save(); ctx.strokeStyle = '#7c5a10'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(300, FY); ctx.lineTo(BUS, FY); ctx.moveTo(BUS, top); ctx.lineTo(BUS, bot); ctx.stroke(); ctx.restore();
+  houses.forEach(h => {
+    glowLine(h.thru.pts, COL.gold, 8, 10, .85);
+    if (h.attack === 'bypass'){
+      const pulse = .65 + .35 * Math.sin(st.t * 6);
+      glowLine(h.byp.pts, COL.red, 10, 20, pulse);
+    }
+  });
+  txt('feeder busbar', BUS + 12, top - 28, 13, '#a98a2e', 'left', 500);
+}
+
+function drawFlows(){
+  houses.forEach(h => {
+    const sp = 70 + h.act * 38;
+    orbs(h.feed, sp, COL.gold, 110, 7);
+    const share = h.attack === 'bypass' ? 1 - st.steal : 1;
+    orbs(h.thru, 60 + h.act * share * 38, COL.gold, 110, 7);
+    if (h.attack === 'bypass') orbs(h.byp, 60 + h.act * st.steal * 50, COL.red, 70, 7);
+  });
+}
+
+function drawDataLinks(){
+  houses.forEach(h => {
+    const spoof = h.attack === 'spoof';
+    ctx.save(); ctx.setLineDash([8, 10]); ctx.lineDashOffset = -st.t * 18; ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(56,189,248,.45)';
+    ctx.beginPath(); ctx.moveTo(h.p0[0], h.p0[1]); ctx.bezierCurveTo(h.p1[0], h.p1[1], h.p2[0], h.p2[1], h.p3[0], h.p3[1]); ctx.stroke();
+    if (spoof){
+      ctx.strokeStyle = 'rgba(239,68,68,.8)'; ctx.beginPath();
+      for (let k = 0; k <= 24; k++){ const p = bez(h, HACK_T + (1 - HACK_T) * k / 24); k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+
+function drawPackets(){
+  houses.forEach(h => {
+    h.packets.forEach(p => {
+      const pos = bez(h, p.t);
+      const bad = p.spoof && p.t >= HACK_T;
+      const col = bad ? COL.red : COL.cyan;
+      const val = bad ? p.fake : p.val;
+      ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 16;
+      rr(pos[0] - 34, pos[1] - 14, 68, 28, 8); ctx.fillStyle = '#0b1120'; ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = col; ctx.stroke(); ctx.restore();
+      txt(val.toFixed(2) + ' kW', pos[0], pos[1] + 5, 14, col, 'center');
+    });
+  });
+}
+
+function drawHacker(){
+  houses.forEach(h => {
+    if (h.attack !== 'spoof') return;
+    const [x, y] = bez(h, HACK_T), pr = (st.t * 1.2) % 1;
+    ctx.save(); ctx.translate(x, y);
+    ctx.globalAlpha = 1 - pr; ctx.strokeStyle = COL.pink; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, 26 + pr * 40, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.shadowColor = COL.pink; ctx.shadowBlur = 26;
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++){ const a = k * Math.PI / 3 + Math.PI / 6; ctx.lineTo(Math.cos(a)*26, Math.sin(a)*26); }
+    ctx.closePath(); ctx.fillStyle = '#3b0a2a'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = COL.pink; ctx.stroke();
+    ctx.restore();
+    txt('MITM', x, y + 5, 13, '#fff', 'center');
+    txt('HACKER', x, y - 40, 15, COL.pink, 'center');
+  });
+}
+
+function drawHouse(h){
+  const y = ROW(h.i), c = WALL[h.i];
+  const b = Math.max(.15, Math.min(1, h.act / 3.6));
+  ctx.save();
+  if (h.attack){ ctx.shadowColor = COL.red; ctx.shadowBlur = 22 * (.6 + .4 * Math.sin(st.t * 5)); }
+  rr(HX, y - 45, HW, 100, 10);
+  const g = ctx.createLinearGradient(0, y - 45, 0, y + 55); g.addColorStop(0, c); g.addColorStop(1, '#1e293b');
+  ctx.fillStyle = g; ctx.fill(); ctx.restore();
+  ctx.beginPath(); ctx.moveTo(HX - 12, y - 45); ctx.lineTo(HX + HW / 2, y - 80); ctx.lineTo(HX + HW + 12, y - 45); ctx.closePath();
+  ctx.fillStyle = '#1e293b'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = c; ctx.stroke();
+  [HX + 28, HX + 98].forEach(wx => {
+    ctx.save(); ctx.shadowColor = `rgba(255,214,102,${b})`; ctx.shadowBlur = 28 * b;
+    rr(wx, y - 28, 52, 38, 5); ctx.fillStyle = `rgba(255,${190 + 50*b|0},${90 + 60*b|0},${.25 + .75*b})`; ctx.fill(); ctx.restore();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(wx + 26, y - 28); ctx.lineTo(wx + 26, y + 10); ctx.moveTo(wx, y - 9); ctx.lineTo(wx + 52, y - 9); ctx.stroke();
+  });
+  rr(HX + 192, y - 5, 40, 60, 5); ctx.fillStyle = '#0f172a'; ctx.fill();
+  txt('CONSUMER ' + (h.i + 1), HX + HW / 2, y - 88, 16, '#fff', 'center');
+  txt(h.act.toFixed(1) + ' kW', HX + 28, y + 44, 14, '#fff', 'left');
+}
+
+function drawMeter(h){
+  const y = ROW(h.i), x = MX;
+  const tamper = h.attack === 'tamper';
+  // antenna
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(h.p0[0], y - 56); ctx.lineTo(h.p0[0], h.p0[1]); ctx.stroke();
+  ctx.beginPath(); ctx.arc(h.p0[0], h.p0[1], 6, 0, 7); ctx.fillStyle = h.flash > 0 ? '#fff' : COL.cyan; ctx.fill();
+  // body
+  ctx.save(); if (tamper){ ctx.shadowColor = COL.red; ctx.shadowBlur = 18; }
+  rr(x, y - 56, MW, 112, 10); ctx.fillStyle = '#e2e8f0'; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = tamper ? COL.red : COL.teal; ctx.stroke(); ctx.restore();
+  txt('SMART METER ' + (h.i + 1), x + MW / 2, y - 40, 12, '#0f172a', 'center');
+  rr(x + 8, y - 32, MW - 16, 82, 6); ctx.fillStyle = '#04141c'; ctx.fill();
+  const jit = tamper ? 1 + (Math.random() - .5) * .08 : 1;
+  const vc = tamper ? COL.red : COL.cyan;
+  txt((h.vm * jit).toFixed(1) + ' V', x + MW - 14, y - 9, 17, vc, 'right');
+  txt((h.am * jit).toFixed(2) + ' A', x + MW - 14, y + 14, 17, vc, 'right');
+  txt((h.meter * jit).toFixed(2) + ' kW', x + MW - 14, y + 38, 17, tamper ? COL.red : COL.gold, 'right');
+  if (tamper) pill('TAMPERED', x + 55, y - 76, COL.red, 13);
+  if (h.attack === 'bypass') pill('ILLEGAL HOOK', x + 75, y + 68, COL.red, 13);
+  h.sparks.forEach(s => {
+    ctx.strokeStyle = Math.random() < .5 ? '#fff6b0' : COL.gold; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * .06, s.y - s.vy * .06); ctx.stroke();
+  });
+}
+
+function drawDiscom(){
+  const bad = calc.pct > LIMIT, watch = !bad && calc.pct > .035;
+  const x = DX, y = 280, w = 320, h = 430;
+  txt('DISCOM CONTROL CENTER', x, 190, 17, COL.cyan);
+  // tower + dishes
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x + 160, y); ctx.lineTo(x + 160, y - 70); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x + 160, y - 74, 7, 0, 7); ctx.fillStyle = bad ? COL.red : COL.green; ctx.fill();
+  [[x + 70, y], [x + 250, y]].forEach(([dx, dy], k) => {
+    ctx.save(); ctx.translate(dx, dy); ctx.rotate(-.9 + .25 * Math.sin(st.t * .9 + k * 2));
+    ctx.beginPath(); ctx.arc(0, 0, 40, Math.PI, 0); ctx.closePath(); ctx.fillStyle = '#cbd5e1'; ctx.fill();
+    ctx.strokeStyle = COL.cyan; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -36); ctx.strokeStyle = '#64748b'; ctx.stroke();
+    ctx.restore();
+  });
+  // building
+  rr(x, y, w, h, 14);
+  const g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, '#1e3a5f'); g.addColorStop(1, '#16243f');
+  ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = bad ? COL.red : COL.teal; ctx.stroke();
+  // receiver ports
+  houses.forEach(hh => {
+    const py = DY(hh.i), spoofed = hh.attack === 'spoof';
+    ctx.beginPath(); ctx.arc(x, py, 10 + 4 * hh.flash, 0, 7); ctx.fillStyle = spoofed ? COL.red : COL.cyan; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#0b1120'; ctx.stroke();
+    txt(String(hh.i + 1), x + 20, py + 5, 13, '#93a4c6', 'left');
+  });
+  // screen
+  const sx = x + 40, sy = y + 40, sw = w - 60, sh = 270;
+  rr(sx, sy, sw, sh, 10); ctx.fillStyle = '#05101a'; ctx.fill();
+  const fl = bad ? .5 + .5 * Math.sin(st.t * 7) : 1;
+  ctx.lineWidth = 3; ctx.strokeStyle = bad ? `rgba(239,68,68,${.4 + .6 * fl})` : watch ? COL.amber : COL.green; ctx.stroke();
+  txt('ENERGY BALANCE', sx + 14, sy + 28, 14, '#93a4c6');
+  txt('TX OUT', sx + 14, sy + 62, 16, '#93a4c6', 'left', 500); txt(calc.txAl.toFixed(1) + ' kW', sx + sw - 14, sy + 62, 18, COL.gold, 'right');
+  txt('RX SUM', sx + 14, sy + 92, 16, '#93a4c6', 'left', 500); txt(calc.rxSum.toFixed(1) + ' kW', sx + sw - 14, sy + 92, 18, COL.cyan, 'right');
+  txt('LOSS', sx + 14, sy + 122, 16, '#93a4c6', 'left', 500); txt((calc.pct * 100).toFixed(1) + ' %', sx + sw - 14, sy + 122, 18, bad ? COL.red : watch ? COL.amber : COL.green, 'right');
+  const bx = sx + 14, bw = sw - 28, by = sy + 138;
+  rr(bx, by, bw, 14, 7); ctx.fillStyle = '#16243f'; ctx.fill();
+  const rf = Math.max(0, Math.min(1, calc.rxSum / calc.txAl));
+  ctx.save(); rr(bx, by, bw, 14, 7); ctx.clip();
+  ctx.fillStyle = COL.cyan; ctx.fillRect(bx, by, bw * rf, 14);
+  ctx.fillStyle = COL.red; ctx.fillRect(bx + bw * rf, by, bw * (1 - rf), 14); ctx.restore();
+  ctx.fillStyle = '#fff'; ctx.fillRect(bx + bw * .95 - 1, by - 4, 2, 22);
+  txt('SYSTEM INTEGRITY', sx + 14, sy + 196, 14, '#93a4c6');
+  txt(bad ? 'COMPROMISED' : watch ? 'WATCH' : 'VERIFIED', sx + sw / 2, sy + 240, 26, bad ? COL.red : watch ? COL.amber : COL.green, 'center');
+  // door
+  rr(x + 130, y + h - 70, 60, 70, 6); ctx.fillStyle = '#0b1120'; ctx.fill();
+}
+
+function drawArcLabel(){
+  txt('WIRELESS AMI LINK', 1090, 905, 14, '#4f78a8', 'left', 500);
+}
+
+/* ---------- view (zoom / pan) ---------- */
+const v = {z:1, cx:W/2, cy:H/2}, vt = {z:1, cx:W/2, cy:H/2};
+let cw = 1, ch = 1, dpr = 1, animating = false;
+const fit = () => Math.min(cw / W, ch / H);
+const scale = () => fit() * v.z;
+function clampZ(z){ return Math.max(.5, Math.min(3, z)); }
+function zoomAt(sx, sy, f){
+  const s0 = scale(), wx = v.cx + (sx - cw/2) / s0, wy = v.cy + (sy - ch/2) / s0;
+  v.z = clampZ(v.z * f); const s1 = scale();
+  v.cx = wx - (sx - cw/2) / s1; v.cy = wy - (sy - ch/2) / s1;
+  Object.assign(vt, v); animating = false;
+}
+function resize(){
+  const r = stage.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cw = Math.max(1, r.width); ch = Math.max(1, r.height);
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect(), k = e.deltaMode === 1 ? 16 : 1;
+  zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * k * .0015));
+}, {passive:false});
+const ptrs = new Map(); let lastD = 0;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); cv.classList.add('drag'); animating = false;
+  if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; lastD = Math.hypot(a[0]-b[0], a[1]-b[1]); }
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 1){
+    const s = scale(); v.cx -= (e.clientX - prev[0]) / s; v.cy -= (e.clientY - prev[1]) / s; Object.assign(vt, v);
+  } else if (ptrs.size === 2){
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a[0]-b[0], a[1]-b[1]), r = cv.getBoundingClientRect();
+    if (lastD) zoomAt((a[0]+b[0])/2 - r.left, (a[1]+b[1])/2 - r.top, d / lastD);
+    lastD = d;
+  }
+});
+const endP = e => { ptrs.delete(e.pointerId); lastD = 0; if (!ptrs.size) cv.classList.remove('drag'); };
+cv.addEventListener('pointerup', endP); cv.addEventListener('pointercancel', endP);
+cv.addEventListener('keydown', e => {
+  if (e.key === '+' || e.key === '=') zoomAt(cw/2, ch/2, 1.25);
+  else if (e.key === '-') zoomAt(cw/2, ch/2, .8);
+  else if (e.key === '0') resetView();
+});
+function animateTo(z, cx, cy){ vt.z = clampZ(z); vt.cx = cx; vt.cy = cy; animating = true; }
+function resetView(){ animateTo(1, W/2, H/2); }
+$('#zin').onclick = () => zoomAt(cw/2, ch/2, 1.3);
+$('#zout').onclick = () => zoomAt(cw/2, ch/2, 1/1.3);
+$('#zreset').onclick = resetView;
+let hintTimer = 0;
+function flash(msg){
+  const el = $('#hint'); el.textContent = msg; clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => el.textContent = 'Scroll to zoom, drag to pan', 3000);
+}
+$('#zfocus').onclick = () => {
+  const hit = houses.filter(h => h.attack);
+  if (!hit.length){ flash('No active attack. Pick a house and a scenario first.'); return; }
+  const h = hit[st.cycle++ % hit.length];
+  animateTo(2.1, 860, ROW(h.i) - 40);
+  flash('Focused on Consumer ' + (h.i + 1) + ': ' + ATK[h.attack].name);
+};
+
+/* ---------- frame loop ---------- */
+let last = performance.now(), dashT = 0;
+function frame(now){
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (!document.hidden){
+    if (animating){
+      const k = 1 - Math.exp(-dt * 6);
+      v.z += (vt.z - v.z) * k; v.cx += (vt.cx - v.cx) * k; v.cy += (vt.cy - v.cy) * k;
+      if (Math.abs(vt.z - v.z) < .002 && Math.abs(vt.cx - v.cx) < .5 && Math.abs(vt.cy - v.cy) < .5){ Object.assign(v, vt); animating = false; }
+    }
+    update(dt);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = COL.bg; ctx.fillRect(0, 0, cw, ch);
+    const s = scale();
+    ctx.translate(cw/2 - v.cx * s, ch/2 - v.cy * s); ctx.scale(s, s);
+    drawBackground(); drawDataLinks(); drawWires(); drawFlows(); drawTransformer();
+    houses.forEach(drawHouse); houses.forEach(drawMeter);
+    drawDiscom(); drawArcLabel(); drawPackets(); drawHacker();
+    dashT -= dt; if (dashT <= 0){ dashT = .25; updateDash(); }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- controls + dashboard ---------- */
+const tg = $('#targets'), ab = $('#attacks');
+houses.forEach(h => {
+  const b = document.createElement('button');
+  b.className = 'pill'; b.style.setProperty('--c', WALL[h.i]); b.textContent = 'House ' + (h.i + 1);
+  b.onclick = () => { st.target = h.i; refreshControls(); }; tg.appendChild(b);
+});
+const defs = [
+  [null, 'Normal Operation', 'Reset all five houses', '#10b981'],
+  ['bypass', 'Attack 1: Meter Bypass', ATK.bypass.sub, ATK.bypass.c],
+  ['spoof', 'Attack 2: Cyber Spoofing', ATK.spoof.sub, ATK.spoof.c],
+  ['tamper', 'Attack 3: Meter Tampering', ATK.tamper.sub, ATK.tamper.c]
+];
+defs.forEach(([key, title, sub, c]) => {
+  const b = document.createElement('button');
+  b.className = 'atk'; b.style.setProperty('--c', c); b.dataset.key = key || '';
+  b.innerHTML = '<b>' + title + '</b><span>' + sub + '</span>';
+  b.onclick = () => {
+    if (!key){ houses.forEach(h => h.attack = null); }
+    else { const h = houses[st.target]; h.attack = h.attack === key ? null : key; }
+    refreshControls();
+  };
+  ab.appendChild(b);
+});
+function refreshControls(){
+  [...tg.children].forEach((b, i) => b.setAttribute('aria-pressed', i === st.target));
+  const cur = houses[st.target].attack;
+  [...ab.children].forEach(b => {
+    const k = b.dataset.key;
+    b.setAttribute('aria-pressed', k ? k === cur : houses.every(h => !h.attack));
+  });
+  const act = houses.map(h => h.attack ? 'House ' + (h.i + 1) + ' ' + ATK[h.attack].short : null).filter(Boolean);
+  $('#sel').innerHTML = 'Selected <b>House ' + (st.target + 1) + '</b>: ' + (cur ? ATK[cur].name : 'running normally') +
+    '. Active attacks: ' + (act.length ? '<b>' + act.join(', ') + '</b>' : 'none') + '.';
+}
+$('#steal').oninput = e => { st.steal = e.target.value / 100; $('#stealO').textContent = e.target.value + '%'; };
+$('#load').oninput = e => { st.lf = e.target.value / 100; $('#loadO').textContent = e.target.value + '%'; };
+
+const tb = $('#tbody');
+houses.forEach(h => { const r = document.createElement('tr'); r.innerHTML = '<td></td><td></td><td></td><td></td><td></td>'; tb.appendChild(r); });
+function updateDash(){
+  const bad = calc.pct > LIMIT, any = houses.some(h => h.attack);
+  const b = $('#banner');
+  b.className = 'banner' + (bad ? ' alert' : any ? ' warn' : '');
+  if (bad){
+    $('#bt').textContent = 'THEFT DETECTED: ' + calc.unacc.toFixed(1) + ' kW unaccounted on Feeder!';
+    $('#bd').textContent = 'Discrepancy between Transformer output (' + calc.txAl.toFixed(1) + ' kW) and DISCOM received data (' + calc.rxSum.toFixed(1) +
+      ' kW). Loss is ' + (calc.pct * 100).toFixed(1) + '% against a 5% limit. Send a field crew, and compare each meter’s local log with what DISCOM received to tell spoofing from bypass.';
+  } else if (any){
+    $('#bt').textContent = 'ATTACK ACTIVE BUT NOT FLAGGED';
+    $('#bd').textContent = 'Feeder imbalance is only ' + (calc.pct * 100).toFixed(1) + '%, under the 5% limit. The theft is real but too small for the energy balance to catch. Raise stolen power or attack more homes.';
+  } else {
+    $('#bt').textContent = 'GRID BALANCED';
+    $('#bd').textContent = 'Transformer output matches meter data. Loss is ' + (calc.pct * 100).toFixed(1) + '%, which is normal line loss.';
+  }
+  const tx = calc.txAl, rep = calc.rxSum, loss = Math.min(Math.max(calc.unacc, 0), LINE_LOSS * tx), theft = Math.max(0, calc.unacc - loss);
+  $('#sRep').style.width = (rep / tx * 100) + '%'; $('#sLoss').style.width = (loss / tx * 100) + '%'; $('#sTheft').style.width = (theft / tx * 100) + '%';
+  $('#ebTitle').textContent = 'Transformer output ' + tx.toFixed(1) + ' kW = reported ' + rep.toFixed(1) + ' kW + unaccounted ' + calc.unacc.toFixed(1) + ' kW';
+  $('#kRep').textContent = rep.toFixed(1) + ' kW'; $('#kLoss').textContent = loss.toFixed(1) + ' kW'; $('#kTheft').textContent = theft.toFixed(1) + ' kW';
+  [...tb.children].forEach((r, i) => {
+    const h = houses[i], c = r.children, gap = h.rxAct - h.rx > 0.15;
+    c[0].textContent = 'Consumer ' + (i + 1);
+    c[1].textContent = h.act.toFixed(2) + ' kW';
+    c[2].textContent = h.meter.toFixed(2) + ' kW';
+    c[3].textContent = h.rx.toFixed(2) + ' kW'; c[3].className = gap ? 'mis' : '';
+    const col = h.attack ? ATK[h.attack].c : '#10b981';
+    c[4].innerHTML = '<span class="chip" style="--c:' + col + '">' + (h.attack ? ATK[h.attack].short : 'Normal') + '</span>';
+  });
+}
+
+refreshControls();
+requestAnimationFrame(frame);
+})();
+</script>

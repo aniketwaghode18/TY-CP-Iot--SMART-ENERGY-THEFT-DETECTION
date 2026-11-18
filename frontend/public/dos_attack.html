@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DoS Attack &amp; Telemetry Disruption — Smart Energy Theft Monitoring</title>
+<style>
+:root{--bg:#050a1c;--p:#0b1431;--c:#121f45;--bd:#22397a;--cy:#00e5ff;--bl:#3b82f6;--pu:#a855f7;--or:#ff9f1c;--rd:#ff3b4e;--gn:#22e6a0;--gd:#ffd23f;--tx:#f1f5ff;--mu:#93a3c9}
+*{box-sizing:border-box;margin:0;padding:0;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+body{background:radial-gradient(1200px 600px at 20% -10%,#14235a 0,var(--bg) 60%);color:var(--tx);min-height:100vh}
+header{padding:16px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-bottom:3px solid var(--bd);background:linear-gradient(90deg,#0a1230,#1a1450 50%,#0a1230)}
+h1{font-size:1.7rem;font-weight:900;background:linear-gradient(90deg,var(--cy),var(--bl),var(--pu));-webkit-background-clip:text;background-clip:text;color:transparent}
+header p{color:var(--mu);font-size:.95rem;margin-top:3px}
+#badge{padding:12px 20px;border-radius:12px;font-weight:900;font-size:1.05rem;border:2px solid var(--gn);color:var(--gn);background:rgba(34,230,160,.14)}
+#badge.bad{border-color:var(--rd);color:#ffc2c8;background:rgba(255,59,78,.25);animation:pr 1s infinite}
+@keyframes pr{50%{box-shadow:0 0 30px var(--rd)}}
+#alert{display:none;padding:14px;text-align:center;font-weight:900;font-size:1.2rem;letter-spacing:.5px;background:linear-gradient(90deg,#7f1020,#ff3b4e,#7f1020);border-bottom:3px solid #ffb3bb;animation:pr 1s infinite}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;padding:14px 16px 0}
+.tile{background:var(--p);border:2px solid var(--bd);border-radius:14px;padding:12px 16px;border-top:5px solid var(--cy)}
+.tile:nth-child(2){border-top-color:var(--bl)}.tile:nth-child(3){border-top-color:var(--gn)}.tile:nth-child(4){border-top-color:var(--rd)}.tile:nth-child(5){border-top-color:var(--or)}.tile:nth-child(6){border-top-color:var(--pu)}.tile:nth-child(7){border-top-color:var(--gd)}
+.tile small{color:var(--mu);font-weight:700;font-size:.8rem}.tile b{display:block;font-size:2.5rem;font-family:Consolas,monospace;margin-top:2px}
+.main{display:grid;grid-template-columns:1fr 470px;gap:16px;padding:16px}
+@media(max-width:1250px){.main{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+#stage{position:relative;height:640px;background:#070e26;border:3px solid var(--bd);border-radius:16px;overflow:hidden;box-shadow:0 0 40px rgba(59,130,246,.18)}
+#stage:fullscreen{height:100vh;border-radius:0}
+canvas{width:100%;height:100%;display:block;cursor:grab}
+.tb{position:absolute;top:12px;right:12px;display:flex;gap:8px;background:rgba(11,20,49,.92);padding:8px;border-radius:12px;border:1px solid var(--bd)}
+.tb button{background:var(--c);color:var(--cy);border:1px solid #2f4a9a;border-radius:8px;padding:9px 14px;font-weight:800;font-size:.95rem;cursor:pointer}
+.tb button:hover{background:var(--cy);color:#041024}
+.hint{position:absolute;left:12px;bottom:10px;background:rgba(11,20,49,.9);padding:6px 12px;border-radius:8px;font-size:.82rem;color:var(--mu)}
+.card{background:var(--p);border:2px solid var(--bd);border-radius:16px;padding:16px}
+.ctl{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{border:0;border-radius:11px;padding:14px 20px;font-weight:900;font-size:1rem;cursor:pointer;transition:.15s}
+.btn:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.15)}.btn:disabled{opacity:.35;cursor:not-allowed}
+.b1{background:var(--gn);color:#032a1f}.b2{background:var(--rd);color:#fff;box-shadow:0 0 18px rgba(255,59,78,.5)}.b3{background:var(--or);color:#2a1700}.b4{background:var(--cy);color:#032a30}.b5{background:#3a4770;color:#fff}
+.box{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--c);border:1px solid var(--bd);border-radius:12px;padding:10px 14px;font-weight:700}
+.chk{background:#0a1229;border:1px solid #2f4a9a;border-radius:8px;padding:7px 12px;cursor:pointer;user-select:none}
+.chk input{accent-color:var(--rd);margin-right:6px;width:16px;height:16px;vertical-align:middle}
+input[type=range]{accent-color:var(--rd);width:170px}
+h2{font-size:1.05rem;font-weight:900;color:var(--cy);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.mc{background:var(--c);border:2px solid var(--bd);border-left:8px solid var(--cy);border-radius:12px;padding:12px 14px;margin-bottom:10px;transition:.2s}
+.mc.STALE{border-color:var(--or);background:rgba(255,159,28,.1)}.mc.OFFLINE{border-color:var(--rd);background:rgba(255,59,78,.14)}
+.mh{display:flex;justify-content:space-between;align-items:center;font-size:1.05rem}
+.tag{font-size:.78rem;font-weight:900;padding:4px 10px;border-radius:6px;background:rgba(34,230,160,.2);color:var(--gn)}
+.STALE .tag{background:rgba(255,159,28,.28);color:var(--or)}.OFFLINE .tag{background:rgba(255,59,78,.3);color:#ffb3bb}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0}
+.cols small{display:block;color:var(--mu);font-size:.72rem;font-weight:700}.cols big{display:block;font-size:2rem;font-family:Consolas,monospace;font-weight:900}
+.act big{color:var(--gd)}.srv big{color:var(--gn)}.STALE .srv big{color:var(--or)}.OFFLINE .srv big{color:var(--rd)}
+.bar{height:8px;background:#060c20;border-radius:5px;overflow:hidden}.bar i{display:block;height:100%;background:var(--gn);transition:width .2s}
+.STALE .bar i{background:var(--or)}.OFFLINE .bar i{background:var(--rd)}
+.meta{font-size:.78rem;color:var(--mu);margin-top:6px;font-family:Consolas,monospace}
+#log{height:230px;overflow-y:auto;background:#060b1c;border:1px solid var(--bd);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;font-family:Consolas,monospace;font-size:.82rem}
+.li{padding:6px 9px;border-left:4px solid var(--cy);background:rgba(255,255,255,.04);border-radius:4px;line-height:1.35}
+.li.warn{border-color:var(--or);background:rgba(255,159,28,.1)}.li.danger{border-color:var(--rd);background:rgba(255,59,78,.16);color:#ffd0d4}.li.ok{border-color:var(--gn)}.li.pu{border-color:var(--pu)}
+.exp{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;padding:0 16px 20px}
+.exp .card h3{font-size:1.05rem;margin-bottom:8px}.exp .card p{color:#cdd8f5;font-size:.92rem;line-height:1.55}
+.exp .card:nth-child(1){border-top:5px solid var(--cy)}.exp .card:nth-child(2){border-top:5px solid var(--pu)}.exp .card:nth-child(3){border-top:5px solid var(--or)}.exp .card:nth-child(4){border-top:5px solid var(--rd)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Smart Energy Theft Monitoring — DoS &amp; Telemetry Disruption</h1>
+  <p>Heartbeat and freshness monitoring across 5 smart meters. Fully simulated in your browser; no real network traffic is generated.</p></div>
+  <div id="badge">● ALL METERS ONLINE</div>
+</header>
+<div id="alert"></div>
+<div class="tiles">
+  <div class="tile"><small>NETWORK AVAILABILITY</small><b id="tAv">100%</b></div>
+  <div class="tile"><small>ARRIVAL RATE</small><b id="tRate">0.0/s</b></div>
+  <div class="tile"><small>PACKETS RECEIVED</small><b id="tRx">0</b></div>
+  <div class="tile"><small>PACKETS DROPPED</small><b id="tDrop">0</b></div>
+  <div class="tile"><small>DELAYED</small><b id="tDelay">0</b></div>
+  <div class="tile"><small>ATTACK INTENSITY</small><b id="tInt" style="font-size:1.35rem;padding-top:6px">IDLE (0%)</b></div>
+  <div class="tile"><small>LAST SUCCESSFUL RX</small><b id="tLast" style="font-size:1.35rem;padding-top:6px">--:--:--</b></div>
+</div>
+<div class="main">
+  <div class="col">
+    <div id="stage">
+      <canvas id="cv"></canvas>
+      <div class="tb"><button id="zi">＋</button><button id="zo">－</button><button id="zr">Reset</button><button id="fs">⛶ Fullscreen</button></div>
+      <div class="hint" id="hint">Wheel = zoom · Drag = pan</div>
+    </div>
+    <div class="card"><h2>Actual vs Server Reading (total kW, last 30 s) <span id="gapBig" style="font-size:1.9rem;font-family:Consolas,monospace;color:var(--gn)">GAP 0.00 kW</span></h2><canvas id="ch" style="height:300px;cursor:default"></canvas></div>
+    <div class="card ctl">
+      <div class="row">
+        <button class="btn b1" id="bStart">▶ Start Normal Simulation</button>
+        <button class="btn b2" id="bDos">⚡ Launch DoS Simulation</button>
+        <button class="btn b3" id="bStop" disabled>■ Stop Attack</button>
+        <button class="btn b4" id="bRest">⟲ Restore Communication</button>
+        <button class="btn b5" id="bReset">↺ Reset</button>
+      </div>
+      <div class="box"><span style="color:var(--cy)">Affected meters:</span><span id="tg" class="row"></span></div>
+      <div class="row">
+        <div class="box">Packet drop: <input id="drop" type="range" min="10" max="100" value="90"> <b id="dropL" style="color:var(--rd)">90%</b></div>
+        <div class="box">Stale timeout: <input id="to" type="range" min="2" max="10" value="3" style="accent-color:var(--or)"> <b id="toL" style="color:var(--or)">3s</b> <small style="color:var(--mu)">(offline at 2×)</small></div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card"><h2>Smart Meters: Actual vs Server View <span style="color:var(--gd);font-size:.8rem">⚡ load never stops</span></h2><div id="cards"></div></div>
+    <div class="card"><h2>Live Event Timeline <button class="tb" style="position:static;padding:4px 10px;color:var(--cy);cursor:pointer;border:1px solid var(--bd)" id="clr">Clear</button></h2><div id="log"></div></div>
+  </div>
+</div>
+<div class="exp">
+  <div class="card"><h3 style="color:var(--cy)">Availability in the CIA triad</h3><p>A DoS attack targets Availability. Nothing is altered or leaked; the monitoring system simply stops receiving data it needs. Operators lose visibility exactly when they need it.</p></div>
+  <div class="card"><h3 style="color:var(--pu)">Heartbeat monitoring</h3><p>Each meter sends a telemetry packet with a heartbeat and an increasing sequence number about every 1.2 s. If the server hears nothing for longer than the timeout, the meter becomes STALE, then OFFLINE at twice the timeout. Gaps in sequence numbers reveal exactly how many packets were lost.</p></div>
+  <div class="card"><h3 style="color:var(--or)">Telemetry freshness</h3><p>Silence is not zero. Electricity keeps flowing through the feeder, so the server keeps the last known value, flags it STALE, and shows its age. Writing 0.00 kW would create false billing and hide real consumption.</p></div>
+  <div class="card"><h3 style="color:var(--rd)">DoS vs physical bypass</h3><p>A bypass shunts current around the meter while its communication stays healthy: telemetry looks fresh but the numbers are too low. A DoS keeps the meter's measurement correct but cuts the link, so telemetry goes missing. One shows wrong data, the other shows no data.</p></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage');
+const W0=1200,H0=640,BUS=228,MX=270,MW=210,MH=100,PERIOD=1.2;
+const F={x:30,y:225,w:155,h:190},G={x:620,y:215,w:190,h:190},A={x:620,y:470,w:190,h:140},S={x:960,y:185,w:230,h:250};
+const gc={x:G.x+G.w/2,y:G.y+G.h/2},sc={x:S.x+S.w/2,y:S.y+S.h/2},ac={x:A.x+A.w/2,y:A.y+A.h/2};
+const my=i=>24+i*122, cy=i=>my(i)+MH/2;
+const base=[3.45,4.8,2.6,5.15,3.1];
+let hist=[],meters,packets,flood,rxTimes,cnt,dos=false,running=true,acc=0,t0=0,evalAcc=0,cardAcc=0,cam={x:0,y:0,z:1},drag=null,lastAlert='';
+
+function ts(){return new Date().toTimeString().split(' ')[0]}
+function log(msg,lv='info'){const d=document.createElement('div');d.className='li '+lv;d.innerHTML='<span style="color:#6b7fb0">['+ts()+']</span> '+msg;const b=$('log');b.prepend(d);while(b.children.length>60)b.lastChild.remove()}
+function init(){
+  const tgt=meters?meters.map(m=>m.targeted):[true,true,true,false,false];
+  meters=base.map((kw,i)=>({id:'SM-0'+(i+1),kw,v:230,a:kw*1000/230,kwh:100+i*45,seq:100,srvKw:kw,srvSeq:100,lastSeen:performance.now(),lastStr:ts(),status:'ONLINE',targeted:tgt[i],missing:0,sent:0,recv:0}));
+  packets=[];flood=[];rxTimes=[];hist=[];cnt={rx:0,drop:0,delay:0,last:'--:--:--'};
+}
+function buildTargets(){
+  $('tg').innerHTML='';
+  meters.forEach((m,i)=>{const l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox" '+(m.targeted?'checked':'')+'>'+m.id;
+    l.querySelector('input').onchange=e=>{m.targeted=e.target.checked;if(dos)log('DoS target list updated: ['+meters.filter(x=>x.targeted).map(x=>x.id).join(', ')+']','warn')};
+    $('tg').appendChild(l)})
+}
+function intensity(){const d=+$('drop').value;return dos?(d>=90?'CRITICAL':d>=60?'HIGH':d>=30?'MEDIUM':'LOW')+' ('+d+'%)':'IDLE (0%)'}
+
+// ---- Simulation engine ----
+function generate(force){
+  const now=performance.now()/1000;
+  meters.forEach((m,i)=>{
+    // physical consumption ALWAYS changes, regardless of network state
+    m.kw=Math.min(7.5,Math.max(1.2,+(m.kw+(Math.random()-.5)*.4+Math.sin(now/2+i*1.3)*.1).toFixed(2)));
+    m.v=+(230+Math.sin(now/1.5+i)*2.6).toFixed(1);m.a=+(m.kw*1000/m.v).toFixed(1);
+    m.kwh=+(m.kwh+m.kw*.003).toFixed(2);m.seq++;m.sent++;
+    let fate='ok';
+    if(dos&&m.targeted&&!force){const r=Math.random(),d=+$('drop').value/100;
+      if(r<d)fate='drop';else if(r<Math.min(.99,d+.2)){fate='delay';cnt.delay++}}
+    packets.push({i,id:m.id,kw:m.kw,seq:m.seq,fate,stage:0,p:0,sp:fate==='delay'?.2:.85,dead:false,al:1,x:0,y:0});
+  });
+}
+function receive(p){
+  const m=meters[p.i],now=performance.now();
+  m.lastSeen=now;m.lastStr=ts();m.recv++;cnt.rx++;cnt.last=m.lastStr;rxTimes.push(now);
+  if(p.seq<=m.srvSeq){log('LATE PACKET ('+m.id+'): seq #'+p.seq+' arrived after #'+m.srvSeq+'. Heartbeat counted, stale reading discarded.','pu');return}
+  if(p.seq>m.srvSeq+1){const g=p.seq-m.srvSeq-1;m.missing+=g;log('SEQUENCE GAP ('+m.id+'): expected #'+(m.srvSeq+1)+', got #'+p.seq+'. '+g+' packet(s) lost in transit.','warn')}
+  m.srvSeq=p.seq;m.srvKw=p.kw;
+  if(m.status!=='ONLINE'){m.status='ONLINE';log('RECOVERY ('+m.id+'): fresh telemetry #'+p.seq+' ('+p.kw.toFixed(2)+' kW). Status back to ONLINE.','ok')}
+}
+function evaluate(){
+  const now=performance.now(),to=+$('to').value*1000;let bad=0;
+  meters.forEach(m=>{const age=now-m.lastSeen,prev=m.status;
+    if(age>to*2){m.status='OFFLINE';if(prev!=='OFFLINE')log('HEARTBEAT TIMEOUT ('+m.id+'): silent for over '+(to*2/1000)+'s. Marked OFFLINE. Keeping last known '+m.srvKw.toFixed(2)+' kW, NOT zero. Actual load is still flowing.','danger')}
+    else if(age>to){m.status='STALE';if(prev==='ONLINE')log('TELEMETRY_LOSS ('+m.id+'): no heartbeat for over '+(to/1000)+'s. Reading marked STALE.','warn')}
+    else m.status='ONLINE';
+    if(m.status!=='ONLINE')bad++});
+  const code=bad>=2?'DOS_DETECTED':bad===1?'TELEMETRY_LOSS':'';
+  const al=$('alert');
+  if(code){al.style.display='block';al.textContent='🚨 '+code.replace('_',' ')+' — '+bad+' of 5 meters not delivering fresh telemetry. Last known values are shown with a STALE flag.';
+    if(code!==lastAlert)log('ALERT RAISED: '+code+' ('+bad+' meter(s) affected).','danger')}
+  else{al.style.display='none';if(lastAlert)log('ALERT CLEARED: all meters reporting fresh telemetry.','ok')}
+  lastAlert=code;
+}
+function updateUI(){updateUI0();pushHist()}
+function pushHist(){
+  if(running){hist.push({a:meters.reduce((q,m)=>q+m.kw,0),s:meters.reduce((q,m)=>q+m.srvKw,0),d:dos,b:meters.some(m=>m.status!=='ONLINE')});if(hist.length>150)hist.shift()}
+  const l=hist[hist.length-1];if(!l)return;const g=Math.abs(l.a-l.s),e=$('gapBig');
+  e.textContent='GAP '+g.toFixed(2)+' kW'+(l.b?' ⚠ STALE':'');e.style.color=l.b?'var(--rd)':'var(--gn)';drawChart();
+}
+function drawChart(){
+  const c=$('ch'),x=c.getContext('2d'),dp=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;
+  if(c.width!==Math.round(w*dp)){c.width=Math.round(w*dp);c.height=Math.round(h*dp)}
+  x.setTransform(dp,0,0,dp,0,0);x.clearRect(0,0,w,h);
+  const N=150,P=46,T=36;let mx=10;hist.forEach(p=>mx=Math.max(mx,p.a,p.s));mx*=1.1;
+  const X=i=>P+(w-P-12)*i/(N-1),Y=v=>h-22-(h-22-T)*v/mx,off=N-hist.length,sw=X(1)-X(0)+1;
+  x.font='12px Consolas';x.textAlign='right';
+  for(let k=0;k<=4;k++){const v=mx*k/4,y=Y(v);x.strokeStyle='rgba(34,57,122,.55)';x.beginPath();x.moveTo(P,y);x.lineTo(w-12,y);x.stroke();x.fillStyle='#93a3c9';x.fillText(v.toFixed(0)+' kW',P-6,y+4)}
+  hist.forEach((p,i)=>{if(p.d){x.fillStyle='rgba(255,59,78,.13)';x.fillRect(X(i+off)-1,T-6,sw,h-T-16)}});
+  if(hist.length>1){
+    x.beginPath();hist.forEach((p,i)=>x.lineTo(X(i+off),Y(p.a)));for(let i=hist.length-1;i>=0;i--)x.lineTo(X(i+off),Y(hist[i].s));x.closePath();x.fillStyle='rgba(255,59,78,.4)';x.fill();
+    const sc2=hist[hist.length-1].b?'#ff9f1c':'#22e6a0';
+    [['a','#ffd23f'],['s',sc2]].forEach(([k,col])=>{x.beginPath();hist.forEach((p,i)=>i?x.lineTo(X(i+off),Y(p[k])):x.moveTo(X(off),Y(p[k])));x.strokeStyle=col;x.lineWidth=4;x.shadowColor=col;x.shadowBlur=10;x.stroke();x.shadowBlur=0})}
+  x.font='bold 14px Trebuchet MS';x.textAlign='left';
+  x.fillStyle='#ffd23f';x.fillText('━ ACTUAL (meters)',P,20);x.fillStyle='#22e6a0';x.fillText('━ SERVER VIEW',P+170,20);x.fillStyle='#ff6b7a';x.fillText('▇ GAP = blind spot',P+320,20);x.fillStyle='#ff9aa5';x.fillText('shaded = attack on',P+500,20);
+}
+function updateUI0(){
+  const on=meters.filter(m=>m.status==='ONLINE').length;
+  const av=$('tAv');av.textContent=(on/5*100).toFixed(0)+'%';av.style.color=on===5?'var(--gn)':on>=3?'var(--or)':'var(--rd)';
+  const now=performance.now();rxTimes=rxTimes.filter(t=>now-t<5000);
+  $('tRate').textContent=(rxTimes.length/5).toFixed(1)+'/s';
+  $('tRx').textContent=cnt.rx;$('tDrop').textContent=cnt.drop;$('tDelay').textContent=cnt.delay;$('tInt').textContent=intensity();$('tLast').textContent=cnt.last;
+  const b=$('badge');if(dos||on<5){b.className='bad';b.textContent='🚨 '+(5-on)+' METER(S) DISRUPTED'+(dos?' — ATTACK ACTIVE':'')}else{b.className='';b.textContent='● ALL METERS ONLINE'}
+  $('cards').innerHTML=meters.map(m=>{
+    const age=(now-m.lastSeen)/1000,to=+$('to').value,pct=Math.max(0,100-Math.min(100,age/(to*2)*100)),d=Math.abs(m.kw-m.srvKw);
+    const flag=m.status==='ONLINE'?'●':m.status==='STALE'?'⚠':'✖';
+    return '<div class="mc '+m.status+'"><div class="mh"><b>'+m.id+'</b><span class="tag">'+flag+' '+m.status+'</span></div>'+
+    '<div class="cols"><div class="act"><small>ACTUAL (LIVE AT METER)</small><big>'+m.kw.toFixed(2)+' kW</big><small>'+m.v+' V · '+m.a+' A · '+m.kwh+' kWh</small></div>'+
+    '<div class="srv"><small>SERVER VIEW'+(m.status!=='ONLINE'?' (LAST KNOWN)':'')+'</small><big>'+m.srvKw.toFixed(2)+' kW</big><small>'+(m.status!=='ONLINE'?'⚠ STALE · age '+age.toFixed(1)+'s':'fresh · #'+m.srvSeq)+'</small></div></div>'+
+    '<div class="bar"><i style="width:'+pct+'%"></i></div>'+
+    '<div class="meta">Δ '+d.toFixed(2)+' kW · missing seq: '+m.missing+' · last rx '+m.lastStr+'</div></div>'}).join('');
+}
+
+// ---- Controls ----
+function launch(){
+  meters.forEach((m,i)=>m.targeted=$('tg').children[i].querySelector('input').checked);
+  const t=meters.filter(m=>m.targeted);
+  if(!t.length){log('Select at least one affected meter before launching.','warn');return}
+  dos=true;running=true;$('bDos').disabled=true;$('bStop').disabled=false;
+  log('DoS SIMULATION LAUNCHED against ['+t.map(m=>m.id).join(', ')+'] at '+$('drop').value+'% drop. Gateway buffer congested; physical load continues.','danger');
+}
+function stopAttack(msg){dos=false;flood=[];$('bDos').disabled=false;$('bStop').disabled=true;if(msg!==false)log('Attack stopped. Waiting for fresh heartbeats to clear STALE flags.','warn')}
+$('bStart').onclick=()=>{running=true;if(dos)stopAttack(false);log('Normal simulation running. Meters stream telemetry and heartbeats.','ok')};
+$('bDos').onclick=launch;$('bStop').onclick=()=>stopAttack();
+$('bRest').onclick=()=>{stopAttack(false);generate(true);log('COMMUNICATION RESTORED: link cleared and each meter sent a fresh telemetry burst.','ok')};
+$('bReset').onclick=()=>{stopAttack(false);init();buildTargets();$('log').innerHTML='';$('alert').style.display='none';lastAlert='';fit();log('System reset. Feeder supplies 5 consumers; telemetry link healthy.','ok')};
+$('clr').onclick=()=>$('log').innerHTML='';
+$('drop').oninput=e=>$('dropL').textContent=e.target.value+'%';
+$('to').oninput=e=>$('toL').textContent=e.target.value+'s';
+
+// ---- Camera ----
+function size(){const d=devicePixelRatio||1;cv.width=stage.clientWidth*d;cv.height=stage.clientHeight*d}
+function fit(){const w=stage.clientWidth,h=stage.clientHeight;cam.z=Math.min(w/W0,h/H0);cam.x=(w-W0*cam.z)/2;cam.y=(h-H0*cam.z)/2;hint()}
+function hint(){$('hint').textContent='Zoom '+Math.round(cam.z*100)+'% · Wheel = zoom · Drag = pan'}
+function zoomAt(f,cx,cy){const z=Math.min(3,Math.max(.35,cam.z*f)),r=z/cam.z;cam.x=cx-(cx-cam.x)*r;cam.y=cy-(cy-cam.y)*r;cam.z=z;hint()}
+$('zi').onclick=()=>zoomAt(1.2,stage.clientWidth/2,stage.clientHeight/2);
+$('zo').onclick=()=>zoomAt(1/1.2,stage.clientWidth/2,stage.clientHeight/2);
+$('zr').onclick=fit;
+$('fs').onclick=()=>document.fullscreenElement?document.exitFullscreen():stage.requestFullscreen().catch(()=>{});
+cv.addEventListener('wheel',e=>{e.preventDefault();const r=cv.getBoundingClientRect();zoomAt(e.deltaY<0?1.12:1/1.12,e.clientX-r.left,e.clientY-r.top)},{passive:false});
+cv.onmousedown=e=>drag={x:e.clientX-cam.x,y:e.clientY-cam.y};
+addEventListener('mousemove',e=>{if(drag){cam.x=e.clientX-drag.x;cam.y=e.clientY-drag.y}});
+addEventListener('mouseup',()=>drag=null);
+addEventListener('resize',()=>{size();fit()});
+document.addEventListener('fullscreenchange',()=>{size();fit()});
+
+// ---- Drawing ----
+function rr(x,y,w,h,r,fill,stroke,lw=2.5,glow){ctx.save();if(glow){ctx.shadowColor=stroke;ctx.shadowBlur=glow}ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.lineWidth=lw;ctx.strokeStyle=stroke;ctx.stroke()}ctx.restore()}
+function line(x1,y1,x2,y2,c,w=3,dash){ctx.save();ctx.beginPath();if(dash)ctx.setLineDash([10,8]);ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=c;ctx.lineWidth=w;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.stroke();ctx.restore()}
+function tx(s,x,y,sz,c,al='center',wt='bold',fam='Trebuchet MS'){ctx.fillStyle=c;ctx.textAlign=al;ctx.font=wt+' '+sz+'px '+fam;ctx.fillText(s,x,y)}
+const SC={ONLINE:'#00e5ff',STALE:'#ff9f1c',OFFLINE:'#ff3b4e'};
+function frame(t){
+  const dt=Math.min(.05,(t-t0)/1000||0);t0=t;
+  const w=stage.clientWidth,h=stage.clientHeight,d=devicePixelRatio||1;
+  ctx.setTransform(d,0,0,d,0,0);ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='rgba(34,57,122,.35)';ctx.lineWidth=1;const st=44*cam.z;
+  for(let x=cam.x%st;x<w;x+=st){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+  for(let y=cam.y%st;y<h;y+=st){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+  if(running){acc+=dt;evalAcc+=dt;if(acc>=PERIOD){acc=0;generate()}if(evalAcc>=.4){evalAcc=0;evaluate()}}
+  cardAcc+=dt;if(cardAcc>.2){cardAcc=0;updateUI()}
+  ctx.save();ctx.translate(cam.x,cam.y);ctx.scale(cam.z,cam.z);
+  const tick=t/1000;
+  // power lines (always gold)
+  line(F.x+F.w,F.y+F.h/2,BUS,F.y+F.h/2,'#ffd23f',6);line(BUS,cy(0),BUS,cy(4),'#ffd23f',6);
+  meters.forEach((m,i)=>{
+    line(BUS,cy(i),MX,cy(i),'#ffd23f',4);
+    const ph=(tick*.5+i*.2)%1;ctx.beginPath();ctx.arc(BUS+(MX-BUS)*ph,cy(i),5,0,7);ctx.fillStyle='#fff3a0';ctx.fill();
+    const hit=dos&&m.targeted;
+    line(MX+MW,cy(i),G.x,gc.y,hit?'#ff3b4e':SC[m.status],hit?2.5:3,hit)});
+  line(G.x+G.w,gc.y,S.x,sc.y,dos?'#ff3b4e':'#3b82f6',5);
+  if(dos){line(ac.x,A.y,gc.x,G.y+G.h,'#ff3b4e',5,true);
+    if(running)for(let k=0;k<3;k++)if(Math.random()<.8)flood.push({x:ac.x+(Math.random()-.5)*60,p:0,s:.9+Math.random()*.6})}
+  {const nb=meters.filter(m=>m.status!=='ONLINE').length,col=nb?'#ff3b4e':dos?'#ff9f1c':'#22e6a0';
+   rr(500,14,440,92,18,'#0a1431',col,4,26);
+   tx(nb?'🚨 '+nb+' METER(S) STALE / OFFLINE':dos?'⚠ ATTACK: PACKETS DROPPING':'✔ NORMAL: SERVER = REALITY',720,52,24,col);
+   tx(nb?'Server shows last known values, not zero':dos?'Meters keep consuming power normally':'Fresh telemetry from all 5 meters',720,84,15,'#cbd5e1','center','normal')}
+  // feeder
+  rr(F.x,F.y,F.w,F.h,16,'#14182e','#ffd23f',4,18);
+  tx('11 kV / 230 V',F.x+F.w/2,F.y+36,15,'#ffd23f');tx('CENTRAL FEEDER',F.x+F.w/2,F.y+58,15,'#ffd23f');
+  tx(meters.reduce((a,m)=>a+m.kw,0).toFixed(2)+' kW',F.x+F.w/2,F.y+105,22,'#fff3a0','center','bold','Consolas');
+  tx('ACTUAL TOTAL LOAD',F.x+F.w/2,F.y+128,11,'#93a3c9');tx('⚡ POWER CONTINUOUS',F.x+F.w/2,F.y+160,13,'#22e6a0');
+  // meters
+  meters.forEach((m,i)=>{const c=SC[m.status],y=my(i);
+    rr(MX,y,MW,MH,14,'#0d1a3f',c,3.5,m.status==='ONLINE'?10:22);
+    tx(m.id,MX+14,y+26,16,'#f1f5ff','left');tx((m.status==='ONLINE'?'● ':m.status==='STALE'?'⚠ ':'✖ ')+m.status,MX+MW-14,y+26,14,c,'right');
+    tx(m.kw.toFixed(2)+' kW',MX+14,y+58,24,'#ffd23f','left','bold','Consolas');
+    tx(m.v+'V | '+m.a+'A',MX+14,y+84,13,'#93a3c9','left','normal','Consolas');tx('Seq #'+m.seq,MX+MW-14,y+84,13,'#38bdf8','right','bold','Consolas');
+    const fr=Math.max(0,1-(performance.now()-m.lastSeen)/1000/(+$('to').value*2));rr(MX+14,y+MH-9,MW-28,6,3,'#060c20');rr(MX+14,y+MH-9,(MW-28)*fr,6,3,c)});
+  // gateway
+  const gb=dos?'#ff3b4e':'#3b82f6';rr(G.x,G.y,G.w,G.h,18,'#111d3d',gb,4,dos?28:12);
+  tx('IoT COMM GATEWAY',gc.x,G.y+34,17,dos?'#ffc2c8':'#60a5fa');tx('MQTT / Cellular Hub',gc.x,G.y+58,13,'#cbd5e1','center','normal');
+  rr(G.x+18,G.y+78,G.w-36,26,7,'#060c1f','#334155',1.5);
+  const lr=dos?Math.min(1,.5+(+$('drop').value/100)*.5):.2;rr(G.x+20,G.y+80,(G.w-40)*lr,22,5,dos?'#ff3b4e':'#22e6a0');
+  tx(dos?'⚠ BUFFER CONGESTED':'✔ CHANNEL CLEAR',gc.x,G.y+135,14,dos?'#ff3b4e':'#22e6a0','center','bold','Consolas');
+  tx('Queue: '+packets.filter(p=>p.fate==='delay'&&!p.dead).length+' delayed',gc.x,G.y+162,12,'#ff9f1c','center','normal','Consolas');
+  // attacker
+  rr(A.x,A.y,A.w,A.h,16,'#26101f',dos?'#ff3b4e':'#64748b',dos?4:2,dos?28:0);
+  tx('DoS FLOOD SOURCE',ac.x,A.y+34,16,dos?'#ff7a88':'#94a3b8');tx(dos?'Simulated flood ACTIVE':'Botnet standby',ac.x,A.y+62,13,'#cbd5e1','center','normal','Consolas');
+  tx(dos?'Intensity '+intensity():'0 flood pkts/s',ac.x,A.y+94,13,dos?'#ff3b4e':'#64748b');tx('(in-app simulation only)',ac.x,A.y+118,11,'#6b7fb0','center','normal');
+  // server
+  const bad=meters.some(m=>m.status!=='ONLINE'),sb=bad?'#ff3b4e':'#22e6a0';
+  rr(S.x,S.y,S.w,S.h,18,'#0c1930',sb,4,bad?28:14);
+  tx('DISCOM SERVER',sc.x,S.y+34,18,bad?'#ff7a88':'#22e6a0');
+  rr(S.x+14,S.y+50,S.w-28,100,10,'#050a17','#1e3a5f',1.5);
+  const sk=meters.reduce((a,m)=>a+m.srvKw,0),ak=meters.reduce((a,m)=>a+m.kw,0);
+  tx('REPORTED'+(bad?' (STALE MIX)':''),sc.x,S.y+74,11,'#93a3c9');tx(sk.toFixed(2)+' kW',sc.x,S.y+102,24,bad?'#ff9f1c':'#22e6a0','center','bold','Consolas');
+  tx('ACTUAL '+ak.toFixed(2)+' kW',sc.x,S.y+128,13,'#ffd23f','center','bold','Consolas');tx('GAP '+Math.abs(ak-sk).toFixed(2)+' kW',sc.x,S.y+144,11,bad?'#ff3b4e':'#22e6a0','center','bold','Consolas');
+  tx('Online: '+meters.filter(m=>m.status==='ONLINE').length+'/5',sc.x,S.y+185,15,'#cbd5e1','center','bold','Consolas');
+  tx(bad?'🚨 TELEMETRY_LOSS ALERT':'🛡 HEARTBEAT GUARD OK',sc.x,S.y+222,14,bad?'#ff3b4e':'#00e5ff');
+  // flood particles
+  for(let k=flood.length-1;k>=0;k--){const f=flood[k];f.p+=f.s*dt*1.6;const y=A.y+(G.y+G.h-A.y)*f.p;
+    ctx.beginPath();ctx.arc(f.x+(gc.x-f.x)*f.p,y,5,0,7);ctx.fillStyle='#ff3b4e';ctx.shadowColor='#ff3b4e';ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;if(f.p>=1)flood.splice(k,1)}
+  // packets
+  for(let k=packets.length-1;k>=0;k--){const p=packets[k];
+    if(running&&!p.dead)p.p+=p.sp*dt;
+    if(p.stage===0){const x1=MX+MW,y1=cy(p.i);p.x=x1+(G.x-x1)*p.p;p.y=y1+(gc.y-y1)*p.p;
+      if(p.fate==='drop'&&p.p>=.85&&!p.dead){p.dead=true;cnt.drop++;log('PACKET DROPPED ('+p.id+'): seq #'+p.seq+' discarded at congested gateway. Server never sees '+p.kw.toFixed(2)+' kW.','danger')}
+      if(p.p>=1&&!p.dead){p.stage=1;p.p=0}}
+    else{const x1=G.x+G.w;p.x=x1+(S.x-x1)*p.p;p.y=gc.y+(sc.y-gc.y)*p.p;if(p.p>=1){receive(p);packets.splice(k,1);continue}}
+    if(p.dead){p.al-=dt*1.2;ctx.save();ctx.globalAlpha=Math.max(0,p.al);tx('✖ DROPPED '+p.id,p.x,p.y-(1-p.al)*30,15,'#ff3b4e');ctx.restore();if(p.al<=0)packets.splice(k,1);continue}
+    const col=p.fate==='delay'?'#ff9f1c':'#00e5ff';
+    rr(p.x-44,p.y-15,88,30,8,p.fate==='delay'?'#4a2300':'#06304a',col,2,14);
+    tx(p.id+' '+p.kw.toFixed(1)+'kW',p.x,p.y+5,12,'#fff','center','bold','Consolas')}
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+init();buildTargets();size();fit();
+log('Simulation initialized. Feeder powering 5 meters; heartbeat monitor armed (timeout 3s).','ok');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

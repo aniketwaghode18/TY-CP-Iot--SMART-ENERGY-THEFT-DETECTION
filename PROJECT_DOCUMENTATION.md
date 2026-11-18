@@ -1,632 +1,1046 @@
-# IoT-Based Smart Energy Theft Monitoring & Cyber-Attack Detection System
-## Comprehensive Technical Documentation & Conceptual Viva Guide
+# IoT Smart Grid Cyber-Physical Theft Detection Project
 
----
+## 1. Project Overview
 
-# TABLE OF CONTENTS
-1. [SECTION 1: COMPLETE TECHNICAL SPECIFICATION & IMPLEMENTATION](#section-1-complete-technical-specification--implementation)
-   - [1.1 System Architecture & Technical Stack](#11-system-architecture--technical-stack)
-   - [1.2 Project File Structure & Responsibilities](#12-project-file-structure--responsibilities)
-   - [1.3 Database Architecture & SQLite WAL Mode](#13-database-architecture--sqlite-wal-mode)
-   - [1.4 REST API & WebSocket Communication Protocol](#14-rest-api--websocket-communication-protocol)
-   - [1.5 Telemetry Simulation Mechanics & Numerical Modeling](#15-telemetry-simulation-mechanics--numerical-modeling)
-   - [1.6 Rule-Based Anomaly & Theft Detection Engine](#16-rule-based-anomaly--theft-detection-engine)
-   - [1.7 Frontend Dashboard & Test Bench Architecture](#17-frontend-dashboard--test-bench-architecture)
-   - [1.8 System Setup & Execution Instructions](#18-system-setup--execution-instructions)
-2. [SECTION 2: CONCEPTUAL FOUNDATIONS, METHODOLOGY & FEATURE WALKTHROUGH](#section-2-conceptual-foundations-methodology--feature-walkthrough)
-   - [2.1 Problem Statement & Background: The Reality of Energy Theft](#21-problem-statement--background-the-reality-of-energy-theft)
-   - [2.2 The Core Paradigm: Ground Truth vs. Reported Telemetry](#22-the-core-paradigm-ground-truth-vs-reported-telemetry)
-   - [2.3 Deep Conceptual Breakdown of Every Attack Mode](#23-deep-conceptual-breakdown-of-every-attack-mode)
-   - [2.4 How the Automated Test Bench Works (Viva Suite)](#24-how-the-automated-test-bench-works-viva-suite)
-   - [2.5 Feature-by-Feature Conceptual Walkthrough of the User Interface](#25-feature-by-feature-conceptual-walkthrough-of-the-user-interface)
-   - [2.6 Viva Voce Defense & Frequently Asked Questions (FAQ)](#26-viva-voce-defense--frequently-asked-questions-faq)
+This project is an educational smart-grid and cyber-security simulation. It demonstrates how electricity theft and cyber attacks can affect smart meters and how a monitoring system may detect manipulated or missing telemetry.
 
----
+The system combines:
 
-# SECTION 1: COMPLETE TECHNICAL SPECIFICATION & IMPLEMENTATION
+- A Python FastAPI backend
+- A SQLite database
+- A React and Vite dashboard
+- Real-time WebSocket telemetry
+- Interactive HTML attack simulations
+- Rule-based detection for tamper, false data, bypass, replay, coordinated FDI, and denial of service
 
-### 1.1 System Architecture & Technical Stack
+The project does not control real electricity or require physical IoT hardware. It runs as a local laboratory for visualization and demonstration.
 
-The system is a deterministic, localized simulation and cybersecurity testbed modeling an Advanced Metering Infrastructure (AMI) smart electricity grid. It decouples physical electricity generation/consumption from telemetry transport and rule evaluation.
+## 2. Problem Statement
 
-```
-+---------------------------------------------------------------------------------------+
-|                                    PHYSICAL GRID LAYER                                |
-|  [Master Grid Feeder]                                                                 |
-|        |                                                                              |
-|        +------> [Smart Meter 01 - Res. A]                                             |
-|        +------> [Smart Meter 02 - Res. B]                                             |
-|        +------> [Smart Meter 03 - Commercial]                                         |
-|        +------> [Smart Meter 04 - Res. C]                                             |
-|        +------> [Smart Meter 05 - Res. D]                                             |
-+---------------------------------------------------------------------------------------+
-                                           |
-                                           v
-+---------------------------------------------------------------------------------------+
-|                           SIMULATION & CYBER-ATTACK ENGINE                            |
-|  - Time Accelerator (1 sec real-time = 15 mins simulated)                             |
-|  - Diurnal Load Curves (Peak / Normal / Night)                                        |
-|  - Ground Truth Generator vs. Attack Mutator (Tamper / FDI / Bypass)                  |
-+---------------------------------------------------------------------------------------+
-                                           |
-                                           v
-+---------------------------------------------------------------------------------------+
-|                         RULE-BASED DETECTION & PERSISTENCE                            |
-|  - Rule 1: Hardware Enclosure Tamper Check                                            |
-|  - Rule 2: Physics Consistency Equation: P = V * I * PF (1% margin)                   |
-|  - Rule 3: Master Feeder vs. Sum of Meters Energy Balance (5% threshold, 3 ticks)     |
-|  - Storage: SQLite in WAL (Write-Ahead Logging) Mode                                  |
-+---------------------------------------------------------------------------------------+
-                                           |
-                   +-----------------------+-----------------------+
-                   |                                               |
-          (WebSocket Stream: 1 Hz)                        (REST Endpoints: HTTP)
-                   |                                               |
-                   v                                               v
-+---------------------------------------------------------------------------------------+
-|                                 REACT VITE DASHBOARD                                  |
-|  - Real-Time Dual Metric Visualizer (Ground Truth vs Reported Active Power)           |
-|  - Interactive Attack Injection Control Panel                                         |
-|  - Phase 5 Automated Test Bench (TC-01, TC-03, TC-08 Latency Benchmark)                |
-+---------------------------------------------------------------------------------------+
+Traditional meter readings can be modified, blocked, replayed, or bypassed. A reporting problem may look like normal low consumption even though electrical load is still flowing through the feeder.
+
+The project addresses this problem through multiple sources of information:
+
+- Physical ground-truth measurements
+- Meter-reported measurements
+- Master-feeder measurements
+- Packet freshness and sequence information
+- Cryptographic and hardware concepts
+- Conservation of energy and feeder balance
+
+The purpose is not only to calculate whether theft occurred, but to show how several security and physics checks can identify an attack.
+
+## 3. High-Level Architecture
+
+```text
+Smart Grid HTML Visualizations
+       |
+       | Independent browser simulation
+       v
+React/Vite Dashboard Tabs
+       |
+       | REST and WebSocket
+       v
+FastAPI Backend
+       |
+       +--> Simulation Engine
+       +--> Rule-Based Detection Engine
+       +--> SQLite Database
+       +--> WebSocket Telemetry Manager
 ```
 
-#### Technology Stack Components
-| Layer | Technologies | Justification |
-| :--- | :--- | :--- |
-| **Backend Runtime** | Python 3.10+ / 3.13 | High standard library maturity, asyncio async loop support, scientific numerical simplicity. |
-| **Backend Web Framework** | FastAPI (ASGI) | Native asynchronous WebSocket support, strict Pydantic type safety, auto-generated OpenAPI documentation. |
-| **ASGI Server** | Uvicorn | High-performance asynchronous server capable of handling continuous real-time broadcast loops. |
-| **Database ORM** | SQLModel (SQLAlchemy Core + Pydantic) | Single schema definition for both database storage and REST API validation. |
-| **Database Engine** | SQLite (WAL Mode enabled) | Embedded zero-dependency database with Write-Ahead Logging to prevent lock contention between the continuous background worker and concurrent UI queries. |
-| **Frontend Framework** | React 18 + Vite | Rapid Hot-Module-Replacement (HMR), declarative UI component tree, optimized single-page bundle. |
-| **Language** | TypeScript 5 | Strict interface typing matching backend Pydantic models to prevent runtime schema mismatches. |
-| **Styling** | Tailwind CSS | Utility-first styling for dark-mode telemetry dashboards with responsive grid layouts. |
-| **Charting Engine** | Recharts (SVG-based) | Responsive dual-series line charts with dynamic interpolation and custom tooltips. |
-| **Iconography** | Lucide React | Modern technical indicators for statuses, warnings, meters, and grid nodes. |
+The active React tabs embed standalone HTML pages. The standalone pages are independent browser simulations. They do not send commands to FastAPI or change the SQLite database.
 
----
+The backend remains the source of the continuous smart-meter simulation.
 
-### 1.2 Project File Structure & Responsibilities
+## 4. Technology Stack
 
-```
-TY-CP-Iot--SMART-ENERGY-THEFT-DETECTION/
+| Component | Technology |
+|---|---|
+| Backend framework | Python, FastAPI |
+| ASGI server | Uvicorn |
+| Database | SQLite |
+| Database ORM | SQLModel and SQLAlchemy |
+| Backend models | Pydantic |
+| Frontend framework | React 18 |
+| Frontend language | TypeScript |
+| Frontend build tool | Vite |
+| Charts | Recharts |
+| Icons | Lucide React |
+| Styling | Tailwind CSS and custom CSS |
+| Real-time communication | WebSocket |
+| Standalone visualizations | HTML, CSS, Canvas, JavaScript |
+
+## 5. Project Structure
+
+```text
+IOT CP SEM 5/
 ├── backend/
-│   ├── database.py              # SQLite engine, connection pooling, and WAL PRAGMA setup
-│   ├── detection.py             # RuleBased DetectionEngine evaluating incoming telemetry
-│   ├── energy_simulation.db     # SQLite database file storing meters, readings, and alerts
-│   ├── main.py                  # FastAPI server, simulation engine, WebSocket manager, attack routes
-│   ├── models.py                # SQLModel table definitions (Meter, TelemetryReadings, Alerts)
-│   └── requirements.txt         # Backend Python package requirements
+│   ├── main.py
+│   ├── models.py
+│   ├── detection.py
+│   ├── database.py
+│   └── requirements.txt
 ├── frontend/
-│   ├── index.html               # Web root entry point
-│   ├── package.json             # NPM dependencies and build scripts
-│   ├── postcss.config.js        # PostCSS pipeline for Tailwind CSS
-│   ├── tailwind.config.js       # Color themes, fonts, and dark mode configuration
-│   ├── tsconfig.json            # TypeScript compiler configuration
-│   ├── vite.config.ts           # Vite configuration with proxy and dev server settings
-│   └── src/
-│       ├── App.tsx              # Monolithic UI containing Dashboard, Charts, Controls & Test Bench
-│       ├── index.css            # Global CSS styles and Tailwind directives
-│       └── main.tsx             # React root DOM mounting script
-├── PROJECT_SPECIFICATION.docx   # Original project requirements document
-├── README.md                    # Project readme file
-├── run_steps.txt                # Quick reference start commands
-└── PROJECT_DOCUMENTATION.md     # This comprehensive technical & conceptual guide
+│   ├── src/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── index.css
+│   ├── public/
+│   │   ├── defense-engine.html
+│   │   ├── smart-grid.html
+│   │   ├── dos_attack.html
+│   │   ├── replay-attack.html
+│   │   └── coordinated-fdi.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── dist/
+├── index.html
+├── smart-grid.html
+├── dos_attack.html
+├── IoT Smart Grid Replay Attack Simulation.html
+├── coordinated_fdi_dashboard.html
+├── energy_simulation.db
+├── PROJECT_DOCUMENTATION.md
+├── PROJECT_SPECIFICATION.docx
+├── WINDOWS_SETUP_GUIDE.md
+└── run_steps.txt
 ```
 
----
+## 6. Backend Files
 
-### 1.3 Database Architecture & SQLite WAL Mode
+### 6.1 `backend/main.py`
 
-The database is built on top of SQLite using **SQLModel**. A critical technical challenge in real-time IoT monitoring is **database lock contention**: a background simulation thread writes telemetry batches every second, while the REST API and user queries read history asynchronously.
+`main.py` contains:
 
-#### SQLite Concurrency Optimization (WAL Mode)
-Standard SQLite locks the entire database file during write transactions. To eliminate `database is locked` exceptions, `backend/database.py` attaches event listeners that trigger on every engine connection:
+- FastAPI application setup
+- CORS configuration
+- The simulation state
+- Meter load generation
+- Ground-truth and reported telemetry
+- Active attack management
+- The background simulation worker
+- REST endpoints
+- WebSocket broadcasting
+- Database reset behavior
 
-```python
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL;")
-    cursor.execute("PRAGMA synchronous=NORMAL;")
-    cursor.execute("PRAGMA busy_timeout=5000;")
-    cursor.close()
+The simulation starts with the FastAPI lifespan event. It creates the database tables, seeds meter records, and starts a one-second background worker.
+
+### 6.2 `backend/models.py`
+
+The database has three main SQLModel tables.
+
+#### `Meter`
+
+Stores meter identity and configuration:
+
+- Database ID
+- Unique meter ID
+- Display name
+- Consumer or feeder type
+- Base current
+- Creation time
+
+#### `TelemetryReadings`
+
+Stores one reading for each meter during each simulation step. It stores both:
+
+- Ground-truth values
+- Reported values
+
+Ground-truth values represent actual physical behavior. Reported values represent what the meter or packet claims.
+
+Fields include voltage, current, power factor, active power, cumulative energy, tamper flag, simulation step, and timestamp.
+
+#### `Alerts`
+
+Stores security events with:
+
+- Meter ID
+- Alert type
+- Severity
+- Message
+- Simulation step
+- Simulated time
+- Timestamp
+- Resolution state
+
+### 6.3 `backend/detection.py`
+
+`DetectionEngine` evaluates reported telemetry using three rules:
+
+1. Tamper detection
+2. Physics consistency
+3. Feeder imbalance
+
+The 1-percent physics tolerance and 5-percent feeder imbalance threshold are configurable.
+
+### 6.4 `backend/database.py`
+
+SQLite is configured with:
+
+- `check_same_thread=False`
+- Write-Ahead Logging mode
+- Normal synchronous mode
+- A 5-second busy timeout
+
+WAL mode allows the background worker to write readings while API clients read them. The busy timeout prevents short database-lock conflicts.
+
+Database files may include:
+
+- `energy_simulation.db`
+- `energy_simulation.db-shm`
+- `energy_simulation.db-wal`
+
+The SHM and WAL files are supporting SQLite runtime files and may appear while the database is active.
+
+## 7. Telemetry Model
+
+The project models six nodes:
+
+- `meter_01`: residential meter
+- `meter_02`: residential meter
+- `meter_03`: commercial meter
+- `meter_04`: residential meter
+- `meter_05`: residential meter
+- `feeder_master`: master grid feeder
+
+One real second represents 15 simulated minutes.
+
+The simulated clock advances on every telemetry tick.
+
+### 7.1 Physical Ground Truth
+
+For each consumer meter, the backend generates:
+
+- A feeder voltage
+- A meter voltage
+- A random current
+- A power factor
+- Active power
+- Cumulative energy
+
+Active power follows:
+
+```text
+P = V × I × PF
 ```
-- **`PRAGMA journal_mode=WAL;`**: Write-Ahead Logging allows simultaneous reads and writes. Readers do not block writers, and writers do not block readers.
-- **`PRAGMA synchronous=NORMAL;`**: Reduces sync operations to critical disk checkpoints, drastically lowering I/O latency.
-- **`PRAGMA busy_timeout=5000;`**: Configures a 5000 ms retry timeout before raising a lock error if a brief checkpoint occurs.
-- **`connect_args={"check_same_thread": False}`**: Permits multiple async request workers to share database engine connections safely.
 
-#### Database Tables Schema ([backend/models.py](file:///c:/Users/vaidi/OneDrive/Documents/Third%20Year/SEM%205/IOT/CP-IoT/TY-CP-Iot--SMART-ENERGY-THEFT-DETECTION/backend/models.py))
+Cumulative energy is calculated using the 15-minute simulation interval:
 
-```mermaid
-erDiagram
-    METERS ||--o{ TELEMETRY_READINGS : emits
-    METERS ||--o{ ALERTS : triggers
-    
-    METERS {
-        int id PK
-        string meter_id UK "meter_01 ... meter_05, feeder_master"
-        string name "User-friendly name"
-        string type "consumer | master_feeder"
-        float base_current "Baseline Amperes"
-        datetime created_at
-    }
-
-    TELEMETRY_READINGS {
-        int id PK
-        string meter_id FK "Indexed meter reference"
-        int simulation_step "Tick sequence step"
-        string simulated_time "Simulated YYYY-MM-DD HH:MM:SS"
-        datetime timestamp "Physical UTC insertion timestamp"
-        float gt_voltage "Ground Truth Volts"
-        float gt_current "Ground Truth Amperes"
-        float gt_power_factor "Ground Truth Power Factor"
-        float gt_active_power "Ground Truth Watts"
-        float gt_cumulative_energy "Ground Truth kWh"
-        bool gt_tamper_flag "Ground Truth Tamper Sensor"
-        float rep_voltage "Reported Volts (Transmitted)"
-        float rep_current "Reported Amperes (Transmitted)"
-        float rep_power_factor "Reported Power Factor (Transmitted)"
-        float rep_active_power "Reported Watts (Transmitted)"
-        float rep_cumulative_energy "Reported kWh (Transmitted)"
-        bool rep_tamper_flag "Reported Tamper Flag"
-    }
-
-    ALERTS {
-        int id PK
-        string meter_id FK "Target meter identifier"
-        string alert_type "TAMPER_DETECTED | PHYSICS_INCONSISTENCY | BYPASS_ALERT"
-        string severity "INFO | WARNING | CRITICAL"
-        string message "Detailed diagnostic explanation"
-        int simulation_step "Step when detected"
-        string simulated_time "Time when detected"
-        datetime timestamp "UTC record creation time"
-        bool resolved "Default False"
-    }
+```text
+Energy(kWh) = Power(kW) × 0.25 hours
 ```
 
----
+### 7.2 Master Feeder
 
-### 1.4 REST API & WebSocket Communication Protocol
+The master feeder represents actual aggregate load plus an assumed technical loss of 3 percent:
 
-#### REST API Endpoints Overview
-| Method | Route | Description | Input Payload / Query | Output Format |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/` | Health check and system metadata | None | JSON object with active attacks, step, clock, and connected clients. |
-| `GET` | `/meters` | Fetch all configured smart meters | None | Array of meters with their latest reading and attack status. |
-| `GET` | `/meters/{meter_id}/history` | Retrieve historical telemetry | `limit` (default: 50) | Array of chronological historical readings for charting. |
-| `GET` | `/alerts` | Query detection alerts log | `limit` (default: 40), `resolved` (bool) | Array of triggered alerts sorted chronologically (latest first). |
-| `POST` | `/alerts/clear` | Purge alerts database | None | `{"status": "cleared", "deleted_count": n}` |
-| `POST` | `/simulation/attack` | Inject cyber or physical attack | `SimulationAttackRequest` | Attack confirmation object with meter ID, type, and intensity. |
-| `POST` | `/simulation/attack/stop`| Halt ongoing attack | `StopAttackRequest` (meter_id optional) | Status confirmation of stopped attack. |
-| `POST` | `/simulation/reset` | Global benchmark reset | None | Reset confirmation clearing database, steps, and attack states. |
-| `GET` | `/simulation/attacks` | Query currently active attacks | None | Active attacks dictionary and count. |
+```text
+Feeder Power = Total Consumer Ground-Truth Power × 1.03
+```
 
-#### WebSocket Telemetry Stream (`/ws/telemetry`)
-- **Protocol**: Standard RFC 6455 WebSockets.
-- **Frequency**: 1.0 Hz (1 tick per physical second).
-- **Payload Structure**:
+The reported feeder values are normally equal to the feeder ground-truth values.
+
+### 7.3 Ground Truth Versus Reported Data
+
+Ground-truth data represents physical reality.
+
+Reported data represents the data transmitted or exposed by the smart meter.
+
+An attack can change reported data while leaving ground truth unchanged. This is the main idea behind the theft and false-data demonstrations.
+
+## 8. Backend Attacks
+
+The active backend attack types are:
+
+### 8.1 Tamper
+
+Attack name:
+
+```text
+trigger_tamper
+```
+
+The reported tamper flag becomes true.
+
+Detection:
+
+```text
+TAMPER_DETECTED
+```
+
+Severity: Critical
+
+### 8.2 False Data Injection
+
+Attack name:
+
+```text
+false_data_injection
+```
+
+The reported active power is reduced by the selected intensity.
+
+Voltage and current remain unchanged. This creates a mismatch with:
+
+```text
+P = V × I × PF
+```
+
+Detection:
+
+```text
+PHYSICS_INCONSISTENCY
+```
+
+Severity: Warning
+
+### 8.3 Bypass
+
+Attack name:
+
+```text
+bypass
+```
+
+The meter reports:
+
+- Zero active power
+- Zero current
+
+The feeder continues to observe the real physical load. The reported consumer sum becomes lower than feeder delivery.
+
+Detection:
+
+```text
+BYPASS_ALERT
+```
+
+Severity: Critical
+
+The detector requires this imbalance to remain present for three consecutive simulation ticks.
+
+## 9. Detection Rules
+
+### Rule 1: Tamper Check
+
+Condition:
+
+```text
+reported tamper_flag == true
+```
+
+Result:
+
+- Create a TAMPER_DETECTED critical alert
+- Identify the target meter
+
+### Rule 2: Physics Inconsistency
+
+Condition:
+
+```text
+absolute(reported power - voltage × current × power factor)
+>
+1 percent of expected power
+```
+
+The check is only applied when expected power is above 1 watt.
+
+Result:
+
+- Create a PHYSICS_INCONSISTENCY warning
+- Display the difference percentage
+
+### Rule 3: Feeder Balance
+
+The detector compares:
+
+- Feeder reported energy
+- Sum of consumer meter reported energy
+- Feeder reported power
+- Sum of consumer reported power
+
+An imbalance above 5 percent starts a consecutive imbalance counter.
+
+When the imbalance lasts for three ticks:
+
+- Create a BYPASS_ALERT
+- Mark the target as the master feeder
+- State the imbalance percentage
+
+If the readings return to balance, the consecutive counter resets.
+
+## 10. REST API
+
+The backend runs at:
+
+```text
+http://localhost:8000
+```
+
+Swagger documentation is available at:
+
+```text
+http://localhost:8000/docs
+```
+
+### Health Check
+
+```text
+GET /
+```
+
+Returns backend status, simulated step, active attacks, and connected WebSocket client count.
+
+### List Meters
+
+```text
+GET /meters
+```
+
+Returns every meter and its latest reading.
+
+### Meter History
+
+```text
+GET /meters/{meter_id}/history?limit=50
+```
+
+Returns historical telemetry for one meter.
+
+Example:
+
+```text
+meter_02
+```
+
+### Alerts
+
+```text
+GET /alerts?limit=40
+```
+
+Returns recent alerts.
+
+```text
+POST /alerts/clear
+```
+
+Deletes all alerts.
+
+### Inject Attack
+
+```text
+POST /simulation/attack
+```
+
+Example JSON:
+
 ```json
 {
-  "timestamp": "2026-11-17T18:00:00.000000+00:00",
-  "simulation_step": 142,
-  "simulated_time": "2026-11-18 11:30:00",
-  "time_compression": "1 sec = 15 mins",
-  "active_attacks": {
-    "meter_02": "false_data_injection"
-  },
-  "meters": {
-    "meter_01": {
-      "meter_id": "meter_01",
-      "name": "Smart Meter 01 (Res. A)",
-      "type": "consumer",
-      "ground_truth": {
-        "voltage": 229.4,
-        "current": 5.42,
-        "power_factor": 0.954,
-        "active_power": 1186.2,
-        "cumulative_energy": 125.82,
-        "tamper_flag": false
-      },
-      "reported": {
-        "voltage": 229.4,
-        "current": 5.42,
-        "power_factor": 0.954,
-        "active_power": 1186.2,
-        "cumulative_energy": 125.82,
-        "tamper_flag": false
-      },
-      "active_attack": null
-    },
-    "feeder_master": { ... }
-  },
-  "alerts": [
-    {
-      "meter_id": "meter_02",
-      "alert_type": "PHYSICS_INCONSISTENCY",
-      "severity": "WARNING",
-      "message": "Physics law violation on Smart Meter 02 (Res. B)! ...",
-      "simulation_step": 142,
-      "simulated_time": "2026-11-18 11:30:00"
-    }
-  ]
+  "meter_id": "meter_02",
+  "attack_type": "false_data_injection",
+  "intensity": 0.5,
+  "duration_steps": null
 }
 ```
 
----
+Valid attack types are:
 
-### 1.5 Telemetry Simulation Mechanics & Numerical Modeling
+- `trigger_tamper`
+- `tamper`
+- `false_data_injection`
+- `physics`
+- `bypass`
+- `stop`
+- `clear`
 
-The simulation engine models a localized electrical distribution feeder and 5 downstream smart consumer meters.
+### Stop Attack
 
-#### 1. Time Compression
-- **Ratio**: \(1\text{ second (wall-clock)} = 15\text{ minutes (simulated time)}\).
-- **Step increment**: \(\Delta t = 0.25\text{ hours}\).
-- **Diurnal cycle duration**: A complete 24-hour day completes in \(24 \times 4 = 96\text{ seconds}\). This enables rapid observation of load shifts and long-term cumulative energy divergence without waiting days.
-
-#### 2. Diurnal Demand Profiles
-To reflect authentic household energy use, consumer loads follow a time-dependent demand curve based on simulated hour \(H\):
-$$\text{time\_factor} = \begin{cases} 
-1.35 & \text{if } 18 \le H \le 22 \quad \text{(Evening Peak: Lighting, Cooking, HVAC)} \\
-0.75 & \text{if } 1 \le H \le 5 \quad \text{(Night Slump: Sleeping, Minimal Idle Load)} \\
-1.05 & \text{otherwise} \quad \text{(Daytime Baseline)}
-\end{cases}$$
-
-#### 3. Electrical Physics Model
-Each meter's instantaneous load is calculated dynamically:
-1. **Feeder Line Voltage**: Gaussian variation centered on standard Indian single-phase grid:
-   $$V_{\text{feeder}} \sim \mathcal{N}(\mu=230.5\text{ V}, \sigma=0.8\text{ V})$$
-2. **Line Voltage Drop**: Consumers downstream experience slight voltage attenuation due to wire impedance:
-   $$V_{\text{consumer}} = V_{\text{feeder}} - \text{Uniform}(0.4\text{ V}, 1.8\text{ V})$$
-3. **Current Draw**: Based on baseline appliance configuration and Gaussian noise:
-   $$I_{\text{consumer}} = \max(0.5\text{ A}, \mathcal{N}(I_{\text{base}} \times \text{time\_factor}, \sigma_{I}))$$
-4. **Power Factor (PF)**: Realistic inductive-resistive domestic load variation:
-   $$\text{PF} \sim \text{Uniform}(0.92, 0.98)$$
-5. **Physical Active Power (\(P\))**:
-   $$P_{\text{true}} = V_{\text{consumer}} \times I_{\text{consumer}} \times \text{PF} \quad [\text{Watts}]$$
-6. **Cumulative Energy Integration**:
-   $$E_{\text{cum}}(t + \Delta t) = E_{\text{cum}}(t) + \frac{P_{\text{true}} \times \Delta t}{1000} \quad [\text{kWh}]$$
-
-#### 4. Master Feeder Aggregation & Technical Distribution Losses
-The Master Grid Feeder measures the aggregate physical energy pumped into the branch, incorporating a baseline **3% Technical Distribution Loss** (\(\alpha = 0.03\)) due to ohmic resistance in distribution cabling:
-$$P_{\text{feeder}} = \left(\sum_{k=1}^{5} P_{\text{true}, k}\right) \times (1.0 + \alpha)$$
-$$I_{\text{feeder}} = \frac{P_{\text{feeder}}}{V_{\text{feeder}} \times \text{PF}_{\text{feeder}}}$$
-
----
-
-### 1.6 Rule-Based Anomaly & Theft Detection Engine
-
-The detection engine ([backend/detection.py](file:///c:/Users/vaidi/OneDrive/Documents/Third%20Year/SEM%205/IOT/CP-IoT/TY-CP-Iot--SMART-ENERGY-THEFT-DETECTION/backend/detection.py)) strictly consumes **Reported Data** only. It has zero knowledge of Ground Truth values, mirroring real-world grid sub-station server constraints.
-
-```mermaid
-flowchart TD
-    A[Incoming Telemetry Batch] --> B[Parse Reported Telemetry for Each Meter]
-    
-    B --> C{Rule 1: Tamper Flag == True?}
-    C -- Yes --> D[Trigger CRITICAL Alert: TAMPER_DETECTED]
-    C -- No --> E{Rule 2: Physics Check |P - V*I*PF| / (V*I*PF) > 1%?}
-    
-    E -- Yes --> F[Trigger WARNING Alert: PHYSICS_INCONSISTENCY]
-    E -- No --> G[Accumulate Consumer Reported Power & Energy]
-    
-    D --> G
-    F --> G
-    
-    G --> H[Calculate Feeder Discrepancy: Feeder - Sum_Consumer]
-    H --> I{Rule 3: Imbalance > 5%?}
-    I -- Yes --> J[Increment consecutive_imbalance_ticks]
-    I -- No --> K[Reset consecutive_imbalance_ticks = 0]
-    
-    J --> L{Ticks >= 3?}
-    L -- Yes --> M[Trigger CRITICAL Alert: BYPASS_ALERT]
-    L -- No --> N[No Bypass Alert Yet - Debouncing Window]
+```text
+POST /simulation/attack/stop
 ```
 
-#### Detailed Rule Formulations
+Stop one meter:
 
-| Rule | Formal Mathematical Criterion | Severity | Debounce / Persistence | Diagnostic Target |
-| :--- | :--- | :--- | :--- | :--- |
-| **Rule 1: Physical Tamper Sabotage** | $$\text{rep\_tamper\_flag} == \text{True}$$ | `CRITICAL` | Immediate (1 tick) | Physical box opening, magnetic field interference, enclosure switch tripping. |
-| **Rule 2: Physics Law Inconsistency** | $$\frac{|P_{\text{rep}} - (V_{\text{rep}} \times I_{\text{rep}} \times \text{PF}_{\text{rep}})|}{V_{\text{rep}} \times I_{\text{rep}} \times \text{PF}_{\text{rep}}} > 0.01$$ | `WARNING` | Immediate (1 tick) | False Data Injection (FDI), firmware hacking, scalar bill-reduction attacks. |
-| **Rule 3: Distribution Feeder Imbalance** | $$\frac{P_{\text{feeder}} - \sum_{k=1}^{n} P_{\text{rep}, k}}{P_{\text{feeder}}} > 0.05$$ | `CRITICAL` | Sustained for \(\ge 3\) consecutive ticks | Physical meter bypass, line tapping before meter terminals, illegal neutral loop. |
-
----
-
-### 1.7 Frontend Dashboard & Test Bench Architecture
-
-The frontend is constructed with high-efficiency modular components in [frontend/src/App.tsx](file:///c:/Users/vaidi/OneDrive/Documents/Third%20Year/SEM%205/IOT/CP-IoT/TY-CP-Iot--SMART-ENERGY-THEFT-DETECTION/frontend/src/App.tsx).
-
-```
-+---------------------------------------------------------------------------------------+
-|  Top Header: System Title | Phase Badge | Sim Clock | Connection Status Indicator    |
-+---------------------------------------------------------------------------------------+
-|  Tab Navigation: [ Live Dashboard ]  |  [ Test Bench (Viva Mode) ]                   |
-+---------------------------------------------------------------------------------------+
-|  TAB 1: LIVE DASHBOARD                                                                |
-|  +-----------------------------------+  +-------------------------------------------+ |
-|  | Master Grid Feeder High-Load Card |  | 5 Consumer Smart Meter Cards              | |
-|  | Total Load, Voltage, Cumulative   |  | Reported vs Ground Truth, Status Badges   | |
-|  +-----------------------------------+  +-------------------------------------------+ |
-|  +----------------------------------------------------------------------------------+ |
-|  | Real-Time Dual-Series Recharts (Active Power: Reported [Cyan] vs Ground Truth [Gold]) | |
-|  +----------------------------------------------------------------------------------+ |
-|  +-----------------------------------+  +-------------------------------------------+ |
-|  | Attack Injection Control Panel    |  | Real-Time Security Alerts Log             | |
-|  | Meter, Attack Mode, Slider, Fire  |  | Filter: All / Critical / Warning, Clear   | |
-|  +-----------------------------------+  +-------------------------------------------+ |
-+---------------------------------------------------------------------------------------+
-|  TAB 2: AUTOMATED TEST BENCH (VIVA SUITE)                                             |
-|  +----------------------------------------------------------------------------------+ |
-|  | Benchmark Summary: Pass Rate %, Total Executed, Average Detection Latency (ms)   | |
-|  +----------------------------------------------------------------------------------+ |
-|  | Test Scenario Cards: [TC-03: Bypass] [TC-08: False Data] [TC-01: Tamper Sabotage] | |
-|  | Run Single Test / Run Entire Automated Suite / Reset Database & Benchmark        | |
-+---------------------------------------------------------------------------------------+
+```json
+{
+  "meter_id": "meter_02"
+}
 ```
 
----
+Stop every meter:
 
-### 1.8 System Setup & Execution Instructions
+```json
+{
+  "meter_id": null
+}
+```
 
-#### Prerequisites
-- **Python**: Version 3.10 to 3.13 (`python --version`)
-- **Node.js**: Version 18+ (`node -v`, `npm -v`)
+### Reset Simulation
 
-#### Step-by-Step Execution Guide
+```text
+POST /simulation/reset
+```
 
-##### Terminal 1: Backend Server
+The reset endpoint:
+
+- Stops active attacks
+- Clears all telemetry records
+- Clears all alerts
+- Restores the simulated clock
+- Restores cumulative energy values
+- Resets the imbalance counter
+
+### Active Attacks
+
+```text
+GET /simulation/attacks
+```
+
+Returns active attacks and their count.
+
+### Compatibility Endpoint
+
+```text
+POST /simulate/attack
+```
+
+This is an alias for `/simulation/attack`.
+
+## 11. WebSocket API
+
+WebSocket URL:
+
+```text
+ws://localhost:8000/ws/telemetry
+```
+
+The backend sends one telemetry payload every second. A payload contains:
+
+- UTC timestamp
+- Simulation step
+- Simulated time
+- Time-compression information
+- Active attacks
+- All six meters
+- Ground-truth values
+- Reported values
+- New alerts
+
+The frontend connects automatically and reconnects after three seconds if the connection closes.
+
+## 12. Final React Front Interface
+
+The React application has the following tabs:
+
+1. Defense Engine
+2. Smart Grid Lab
+3. DoS Attack
+4. Replay Attack
+5. Coordinated FDI
+
+The Viva Live Dashboard and Viva Test Bench were removed from the final tab navigation.
+
+They are not the final presentation pages.
+
+### 12.1 Defense Engine
+
+The Defense Engine is loaded from:
+
+```text
+index.html
+```
+
+It is copied into Vite as:
+
+```text
+frontend/public/defense-engine.html
+```
+
+It explains and demonstrates defense mechanisms:
+
+- Cryptographic gatekeeping
+- Hardware tamper checks
+- Physics and anomaly filtering
+- Cross-layer conservation
+- Hash-chain recovery
+- Resilience under attack
+
+It provides separate internal tabs for the defense pipeline, hardware shield, physics filter, conservation check, cryptographic gatekeeper, and hash-chain recovery.
+
+This page also accepts normal, tamper, FDI, stealth FDI, replay, and DoS test streams.
+
+### 12.2 Smart Grid Lab
+
+The Smart Grid Lab is loaded from:
+
+```text
+smart-grid.html
+```
+
+It visually represents:
+
+- A distribution transformer
+- A feeder
+- Five consumer homes
+- Smart meters
+- Physical power flow
+- Reported packet flow
+- A DISCOM control center
+
+It supports:
+
+- Meter selection
+- Bypass
+- Spoofing
+- Physical tampering
+- Load variation
+- Stolen-power variation
+- Pan and zoom
+
+The DISCOM dashboard compares actual feeder delivery, normal line loss, meter reports, and unexplained energy.
+
+### 12.3 DoS Attack
+
+The DoS page demonstrates telemetry disruption.
+
+It can show:
+
+- Packet loss
+- Missing heartbeats
+- Stale meters
+- Delayed telemetry
+- Detection delay
+- A loss-versus-time chart
+- A network and control-center diagram
+
+This simulation uses independently generated packet and heartbeat information. It is not currently connected to the backend packet queue.
+
+### 12.4 Replay Attack
+
+The replay attack page demonstrates an attacker capturing a valid packet and sending it later.
+
+The demonstration includes:
+
+- Fresh packet capture
+- Packet replay
+- Sequence numbers
+- Timestamp freshness
+- A replay counter
+- Defense enable/disable behavior
+- Server acceptance or rejection
+
+The replay lab is independent of the backend WebSocket.
+
+### 12.5 Coordinated FDI
+
+The coordinated FDI page demonstrates coordinated false data across several meters.
+
+It explains:
+
+- Normal operation
+- Simple FDI
+- Physics mismatch
+- Coordinated FDI
+- Balancing inconsistencies
+- Feeder-level detection
+- Critical alerts
+
+The page includes internal modes for normal operation, simple FDI, stealth FDI, and coordinated FDI.
+
+This page is independent of the backend REST and WebSocket APIs.
+
+## 13. Standalone versus Backend-Connected Features
+
+### Backend-Connected
+
+- FastAPI REST endpoints
+- FastAPI WebSocket telemetry
+- Backend simulation worker
+- SQLite persistence
+- Backend tamper, FDI, and bypass injection
+- Backend alerts
+
+### Independent Browser Demonstrations
+
+- Defense Engine
+- Smart Grid Lab
+- DoS Attack
+- Replay Attack
+- Coordinated FDI
+
+The independent pages share no live state with the backend.
+
+Changing controls in one standalone tab does not:
+
+- Change the backend simulation
+- Change SQLite records
+- Generate backend alerts
+- Modify another standalone page
+
+The standalone pages are visual educational modules embedded in the same React shell.
+
+## 14. Setup Requirements
+
+### Windows Software
+
+- Python 3.10 to 3.13
+- Node.js 18 or newer
+- npm
+- Modern browser
+
+### Backend Dependencies
+
+```text
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.0.0
+sqlmodel>=0.0.16
+```
+
+## 15. Installation
+
+### Backend
+
+Open PowerShell in the project root:
+
 ```powershell
 cd backend
-python -m pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
-*The backend starts at `http://localhost:8000`. Swagger API docs are accessible at `http://localhost:8000/docs`.*
 
-##### Terminal 2: Frontend Dashboard
+If script execution is blocked:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+### Frontend
+
+Open a second terminal:
+
 ```powershell
 cd frontend
 npm install
+```
+
+Dependencies may already exist in `frontend/node_modules`.
+
+## 16. Running the Project
+
+### Start Backend
+
+```powershell
+cd backend
+python -m uvicorn main:app --reload --port 8000
+```
+
+### Start Frontend
+
+```powershell
+cd frontend
 npm run dev
 ```
-*The Vite frontend starts at `http://localhost:3000`.*
 
----
+Open:
 
-# SECTION 2: CONCEPTUAL FOUNDATIONS, METHODOLOGY & FEATURE WALKTHROUGH
-
-### 2.1 Problem Statement & Background: The Reality of Energy Theft
-
-#### The Magnitude of Non-Technical Losses (NTL)
-In electrical power distribution systems, losses are categorized into two distinct classes:
-1. **Technical Losses (TL)**: Inherent physical dissipation of electrical energy as heat in conductors, transformers, and switchgear (\(I^2 R\) losses). These are unavoidable laws of thermodynamics and typically account for 2% to 4% of well-maintained distribution networks.
-2. **Non-Technical Losses (NTL)**: Losses caused by external human actions, predominantly **energy theft**, physical meter tampering, cyber-attacks on smart metering infrastructure, billing errors, and unmetered illegal connections.
-
-In developing power markets, NTL often exceeds **15% to 25%** of generated energy. This causes:
-- Multi-billion dollar annual financial deficits for public and private electricity distribution companies (DISCOMs).
-- Unplanned feeder overloading, leading to local distribution transformer burnouts and blackouts.
-- Increased tariffs on paying, honest consumers to subsidize unmetered consumption.
-
-#### The Smart Grid Vulnerability Paradox
-The global deployment of Advanced Metering Infrastructure (AMI) smart meters was intended to eliminate energy theft by replacing physical human meter readers with automated cellular/RF telemetry. However, smart meters introduced a new attack surface: **cyber-physical attacks**. If a malicious actor compromises the firmware or network packets of an IoT smart meter, they can artificially report suppressed energy consumption while continuing to draw high physical power from the grid.
-
-This project was built to address this exact challenge by providing a **transparent, physics-informed, rule-based cyber-physical testbed**.
-
----
-
-### 2.2 The Core Paradigm: Ground Truth vs. Reported Telemetry
-
-The foundational intellectual principle of this project is the **strict philosophical and architectural decoupling of Ground Truth from Reported Telemetry**.
-
-```
-+-------------------------------------------------------------+
-|                      PHYSICAL UNIVERSE                      |
-|                  (Ground Truth Telemetry)                   |
-|                                                             |
-|  - Real electrons passing through copper cables             |
-|  - Real magnetic flux, current draw, and power dissipation  |
-|  - Inviolable laws of physics (P = V * I * PF)              |
-|  - Measured upstream by the Master Grid Transformer         |
-+-------------------------------------------------------------+
-                              |
-                     [Attacker Intrusion]
-                     - Physical bypass wire
-                     - Injected corrupted payload
-                     - Firmware active power scalar
-                              |
-                              v
-+-------------------------------------------------------------+
-|                      CYBER / IOT UNIVERSE                   |
-|                    (Reported Telemetry)                     |
-|                                                             |
-|  - The digitized byte stream sent over MQTT / WebSockets    |
-|  - Can be fabricated, zeroed, tampered, or scaled           |
-|  - What the utility billing system traditionally sees       |
-+-------------------------------------------------------------+
+```text
+http://localhost:3000
 ```
 
-#### Why Decoupling is Essential
-1. **In a physical grid without ground truth sensors**, a utility only sees what the meter reports. If a consumer hacks their meter to report 0 Amperes, the billing computer simply assumes the house is vacant.
-2. **In this simulation testbed**, the engine maintains the true physical reality (`ground_truth`) alongside the transmitted packet (`reported`).
-3. **The Detection Engine is deliberately blindfolded**: It is granted access **strictly to reported data and feeder aggregate data**. It must discover the theft using physical principles and conservation of energy.
+Backend URLs:
 
----
-
-### 2.3 Deep Conceptual Breakdown of Every Attack Mode
-
-The project implements three distinct, representative threat vectors reflecting real-world energy theft techniques:
-
-```mermaid
-graph TD
-    subgraph ATK1 [1. Physical Tamper Sabotage]
-        T1[Physical Action: Magnet or Box Breach] --> T2[Hardware Sensor Closes: tamper_flag = True]
-        T2 --> T3[Rule 1 Detection: Immediate CRITICAL Alert]
-    end
-
-    subgraph ATK2 [2. False Data Injection - FDI]
-        F1[Cyber Action: Modify Reported Power P by 50%] --> F2[Voltage V and Current I Remain Normal]
-        F2 --> F3[Math Breakdown: P != V * I * PF]
-        F3 --> F4[Rule 2 Detection: WARNING Alert - Physics Inconsistency]
-    end
-
-    subgraph ATK3 [3. Meter Physical Bypass]
-        B1[Physical Action: Jumper Cable Across Terminals] --> B2[Meter Measures Nothing: I_rep=0, P_rep=0]
-        B2 --> B3[Feeder Delivers Load to Grid: Feeder Stays High]
-        B3 --> B4[Energy Deficit: Feeder - Sum_Meters > 5%]
-        B4 --> B5[Rule 3 Detection: 3 Ticks Debounce -> CRITICAL Bypass Alert]
-    end
+```text
+http://localhost:8000
+http://localhost:8000/docs
+http://localhost:8000/redoc
 ```
 
-#### 1. Attack Vector 1: Physical Tamper Sabotage (`trigger_tamper`)
-- **Real-World Mechanism**: Consumers frequently attempt to disrupt the inductive coils or Hall-effect sensors inside electronic meters using high-strength neodymium magnets, or they open the meter casing to modify the internal circuitry.
-- **IoT Countermeasure**: Modern smart meters are equipped with optical enclosure micro-switches and Hall-effect magnetic flux sensors powered by an internal lithium backup coin battery.
-- **Simulation Behavior**: The attacker triggers the tamper switch. The meter payload transmits `tamper_flag = True`.
-- **Detection Logic**: Rule 1 triggers an immediate `CRITICAL` alert: `"Tamper sensor triggered on Smart Meter XX! Physical enclosure or magnetic field breach detected."`
+## 17. Production Frontend Build
 
-#### 2. Attack Vector 2: False Data Injection / FDI (`false_data_injection`)
-- **Real-World Mechanism**: A cyber-attack where the attacker gains root access to the smart meter microcontroller (via optical port or RF/Zigbee interface) or intercepts the network transmission. Rather than zeroing the bill (which would attract suspicion), the attacker cuts the reported power by a fraction (e.g., 50%) to subtly reduce their electricity bill month after month.
-- **The Attacker's Fatal Mistake**: A naive hacker modifies only the `Active Power (W)` field, leaving the raw `Voltage (V)`, `Current (A)`, and `Power Factor (PF)` measurements untouched because modifying all correlated physical variables consistently requires solving non-linear AC circuit equations in real time.
-- **Simulation Behavior**:
-  $$\text{Reported Active Power} = P_{\text{true}} \times (1.0 - \text{intensity})$$
-  $$\text{Reported Voltage} = V_{\text{true}}, \quad \text{Reported Current} = I_{\text{true}}, \quad \text{Reported PF} = \text{PF}_{\text{true}}$$
-- **Detection Logic**: Rule 2 tests the fundamental AC active power equation:
-  $$P_{\text{expected}} = V_{\text{reported}} \times I_{\text{reported}} \times \text{PF}_{\text{reported}}$$
-  If \(|P_{\text{reported}} - P_{\text{expected}}| / P_{\text{expected}} > 0.01\) (1% tolerance), the engine immediately exposes the fraud: `"Physics law violation on Smart Meter XX! Reported P=XXX.X W deviates from V*I*PF=YYY.Y W by ZZ.Z%."`
-
-#### 3. Attack Vector 3: Physical Meter Wiring Bypass (`bypass`)
-- **Real-World Mechanism**: The consumer installs a physical bridging wire (jumper) connecting the incoming service line directly to the home distribution board, bypassing the current sensing element of the meter entirely.
-- **The Meter's View**: The meter current drops to \(0\text{ A}\) and power drops to \(0\text{ W}\). To the local meter, it appears as though all home appliances are switched off.
-- **The Grid's View (Law of Conservation of Energy)**: The appliances are still consuming physical electricity. That power must originate from the distribution transformer (the Master Feeder).
-- **Simulation Behavior**:
-  $$\text{Consumer Reported Current} = 0.0\text{ A}, \quad \text{Consumer Reported Power} = 0.0\text{ W}$$
-  $$\text{Master Feeder Power} = \sum P_{\text{true}} \times (1.03) \quad (\text{Remains High!})$$
-- **Detection Logic (Macro Energy Balance & Debouncing)**:
-  Rule 3 calculates the feeder discrepancy:
-  $$\Delta P = P_{\text{feeder}} - \sum_{k=1}^{5} P_{\text{reported}, k}$$
-  If \(\Delta P / P_{\text{feeder}} > 0.05\) (5% threshold, safely above 3% technical cable losses):
-  - **Debouncing Requirement**: Sudden appliance switching or motor inrush currents can cause momentary 1-second imbalances. To prevent false positives, Rule 3 requires the imbalance to persist for **3 consecutive ticks (representing 45 simulated minutes)**.
-  - On the 3rd consecutive tick, it fires a `CRITICAL` alert: `"Grid bypass detected! Master feeder load exceeds aggregate consumer readings by XX.X% for 3 consecutive intervals."`
-
----
-
-### 2.4 How the Automated Test Bench Works (Viva Suite)
-
-The **Automated Test Bench (Viva Mode)** provides an automated, reproducible testing environment for examiners to verify the system's performance metrics:
-
-```mermaid
-sequenceDiagram
-    participant UI as Test Bench UI (React)
-    participant API as FastAPI Backend (/simulation)
-    participant Sim as Simulation Engine
-    participant Det as Detection Engine
-    participant WS as WebSocket Stream
-
-    Note over UI,WS: 1. Initialization Phase
-    UI->>API: POST /simulation/reset
-    API->>Sim: Clear attacks, step=0, reset clocks
-    API->>API: Clear SQLite telemetry & alerts
-
-    Note over UI,WS: 2. Test Execution (e.g., TC-08: False Data Injection)
-    UI->>UI: Record start_time = performance.now()
-    UI->>API: POST /simulation/attack (meter_03, false_data_injection, 0.5)
-    API->>Sim: Inject attack into meter_03
-
-    Note over UI,WS: 3. Tick & Detection Loop
-    Sim->>Sim: Mutate reported active power (-50%)
-    Sim->>Det: Evaluate reported metrics
-    Det->>Det: Rule 2 fails: P != V * I * PF
-    Det->>API: Generate Alert: PHYSICS_INCONSISTENCY
-
-    Note over UI,WS: 4. Real-time Ingestion & Verification
-    API->>WS: Broadcast tick data + alert payload
-    WS-->>UI: Receive WebSocket message
-    UI->>UI: Match alert_type == "PHYSICS_INCONSISTENCY" && meter == "meter_03"
-    UI->>UI: Calculate latency = performance.now() - start_time
-    UI->>API: POST /simulation/attack/stop (meter_03)
-    UI->>UI: Mark TC-08 status = PASS, update Latency card
+```powershell
+cd frontend
+npm run build
+npm run preview
 ```
 
-#### Test Suite Matrix
-| Test Case ID | Test Case Title | Target Meter | Injected Attack | Expected Alert Signature | Success Criteria |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **TC-01** | Physical Tamper Sabotage | `meter_02` | `trigger_tamper` | `TAMPER_DETECTED` (Severity: `CRITICAL`) | Alert received with matching meter ID and enclosure violation message within 8500 ms. |
-| **TC-03** | Simulated Meter Bypass | `meter_01` | `bypass` | `BYPASS_ALERT` (Severity: `CRITICAL`) | Alert received indicating Feeder > 5% above sum of meters after 3 consecutive ticks. |
-| **TC-08** | False Data Injection (FDI) | `meter_03` | `false_data_injection` (50%) | `PHYSICS_INCONSISTENCY` (Severity: `WARNING`) | Alert received flagging active power deviation from \(V \times I \times \text{PF}\). |
+The production build is written to:
 
-#### Measured Evaluation Metrics
-1. **Detection Latency (ms)**: High-resolution wall-clock duration between the REST attack invocation and the exact millisecond the corresponding alert is parsed from the WebSocket stream.
-2. **True Positive Rate / Pass Rate (%)**: \(\frac{\text{Passed Tests}}{\text{Total Executed Tests}} \times 100\).
-3. **Debounce Verification**: Confirms that transient noise does not trigger false alerts, while sustained anomalies are detected within the defined time window.
+```text
+frontend/dist
+```
 
----
+Standalone HTML files must remain in `frontend/public` or be copied into `frontend/dist` for iframe routes to work.
 
-### 2.5 Feature-by-Feature Conceptual Walkthrough of the User Interface
+## 18. Demonstration Sequence
 
-#### 1. Real-Time Telemetry Header & Status Badges
-- **Simulated Clock**: Shows accelerated grid time (\(1\text{s} = 15\text{m}\)). Allows observing day-to-night transitions.
-- **Connection Pill**: Green pulsing indicator confirms live WebSocket transport. Automatically attempts reconnection every 3 seconds if disconnected.
+### Backend Tamper Demonstration
 
-#### 2. Master Feeder vs. Consumer Grid Cards
-- **Master Grid Feeder Card**: Displayed on the left with prominent purple/indigo accents. Shows the total aggregate power drawn by the entire neighborhood plus technical cable loss.
-- **Consumer Meter Cards**: 5 distinct cards representing residential and commercial subscribers. Each card displays:
-  - Live Reported Voltage (\(\text{V}\)), Current (\(\text{A}\)), Power Factor, and Active Power (\(\text{W}\)).
-  - Attack status badges (e.g., `Bypass Active (0W)`, `FDI Active (-50%)`, `Tamper Injected`).
-  - Active selection highlight: Clicking any meter routes its live stream into the main comparison chart.
+1. Open the backend Swagger interface.
+2. Call `/simulation/attack`.
+3. Select `meter_02`.
+4. Select `trigger_tamper`.
+5. Observe `TAMPER_DETECTED`.
+6. Call `/simulation/attack/stop`.
 
-#### 3. Dual-Series Recharts Visualizer
-- **Reported Power Line (Cyan)**: Illustrates the metric transmitted by the IoT meter.
-- **Ground Truth Power Line (Amber/Gold)**: Illustrates the physical energy consumed.
-- **Visual Attack Divergence**:
-  - In normal conditions, the Cyan and Gold lines overlap.
-  - When False Data Injection is activated, the Cyan line drops to 50%, while the Gold line remains high.
-  - When Bypass is activated, the Cyan line drops to zero, visually exposing the theft.
+### Backend FDI Demonstration
 
-#### 4. Attack Injection Control Panel
-- **Target Selector**: Allows picking any of the 5 consumer meters.
-- **Intensity Slider**: Adjusts attack magnitude from 10% to 90% (for False Data Injection).
-- **Direct Attack Buttons**: One-click triggering of Tamper Sabotage, False Data Injection, or Wiring Bypass.
-- **Stop Button**: Clears active attacks, restoring normal meter reporting.
+1. Call `/simulation/attack`.
+2. Select `meter_03`.
+3. Select `false_data_injection`.
+4. Set intensity to `0.5`.
+5. Observe that reported power differs from `V × I × PF`.
+6. Observe `PHYSICS_INCONSISTENCY`.
 
-#### 5. Real-Time Security Alerts Log
-- Displays alerts with timestamps, simulation steps, severity chips (`CRITICAL` in crimson, `WARNING` in amber), and diagnostic messages.
-- Filterable by `ALL`, `CRITICAL`, or `WARNING`. Includes a one-click button to purge alerts from the database.
+### Backend Bypass Demonstration
 
----
+1. Call `/simulation/attack`.
+2. Select `meter_01`.
+3. Select `bypass`.
+4. Wait for three consecutive ticks.
+5. Observe feeder imbalance.
+6. Observe `BYPASS_ALERT`.
 
-### 2.6 Viva Voce Defense & Frequently Asked Questions (FAQ)
+### Defense Engine Demonstration
 
-Here are the most critical questions external examiners typically ask during viva examinations, along with model technical answers:
+1. Open the Defense Engine tab.
+2. Select normal stream.
+3. Change to tamper, FDI, replay, stealth FDI, or DoS.
+4. Observe packet acceptance or rejection.
+5. Inspect the internal tabs for each defense layer.
 
-#### Q1: "Why did you use a Rule-Based Detection Engine instead of Machine Learning (ML)?"
-> **Answer**:  
-> In electrical grid protection and billing fraud detection, **explainability and latency** are critical. Machine learning models (like Random Forests, Autoencoders, or Isolation Forests) operate as "black boxes" that require large, labeled training datasets, suffer from concept drift when consumer load habits change, and can generate false positives due to benign anomalies (like purchasing a new air conditioner).  
-> In contrast, our rule-based engine relies on **inviolable physical laws**:
-> 1. An electrical meter cannot report \(1000\text{W}\) when \(230\text{V} \times 10\text{A} \times 0.95 = 2185\text{W}\). This is a mathematical impossibility governed by the laws of alternating current.
-> 2. Energy cannot disappear between a distribution transformer and its 5 downstream meters; conservation of energy dictates that any substantial, persistent deficit is non-technical loss.  
-> Our rules provide deterministic, zero-latency detection with zero false positives under honest conditions and produce human-understandable diagnostic messages.
+### Replay Demonstration
 
-#### Q2: "How does the system prevent false alarms caused by normal line losses or motor startup currents?"
-> **Answer**:  
-> We incorporated two specific engineering mechanisms:
-> 1. **Tolerance Margins**: We configured a **3% baseline technical distribution loss** in the physical model and set the Feeder Imbalance detection threshold at **5%**, preventing normal line impedance losses from triggering alerts.
-> 2. **Temporal Debouncing (Consecutive Ticks)**: Motor startup currents (e.g., compressor starting) can cause momentary 1-second power spikes. Rule 3 requires the energy imbalance to persist for **3 consecutive ticks (45 simulated minutes)** before escalating to a `CRITICAL` bypass alert, effectively filtering out transient electrical noise.
+1. Open Replay Attack.
+2. Enable defense.
+3. Launch the replay.
+4. Observe the sequence and timestamp checks.
+5. Disable defense to compare behavior.
 
-#### Q3: "What is the significance of SQLite WAL (Write-Ahead Logging) mode in this project?"
-> **Answer**:  
-> Standard SQLite locks the entire database file during write operations. Because our simulation loop writes telemetry batches every second while the frontend concurrently queries historical readings and active alerts via REST, standard SQLite would frequently throw `database is locked` exceptions.  
-> By enabling WAL mode (`PRAGMA journal_mode=WAL`), SQLite writes new records to a separate `-wal` log file. This enables **concurrent readers and writers**: the background simulation worker writes telemetry without blocking user API reads, ensuring smooth dashboard operation.
+### Coordinated FDI Demonstration
 
-#### Q4: "Why is the simulation accelerated to 1 second = 15 minutes?"
-> **Answer**:  
-> Energy theft patterns, particularly meter bypass and unmetered consumption, are long-term cumulative phenomena evaluated over hours and billing cycles. If the simulation ran in real time (1:1), an examiner would have to wait 6 to 12 hours to observe cumulative kilowatt-hour divergence. With our time compression factor of 900x (\(1\text{s} = 15\text{m}\)), an entire 24-hour diurnal cycle elapses in 96 seconds, allowing rapid demonstration of diurnal demand curves, attack impacts, and recovery.
+1. Open Coordinated FDI.
+2. Compare normal operation and simple FDI.
+3. Select stealth or coordinated FDI.
+4. Observe how physics-only and feeder-only checks respond.
+5. Observe cross-meter imbalance.
 
-#### Q5: "How does your system distinguish between a household with appliances turned off versus a meter bypass attack?"
-> **Answer**:  
-> If an honest household turns off all appliances, both the meter's reported load drops to near-zero **and** the Master Feeder's physical load drops proportionally.  
-> In a bypass attack, the consumer meter reports zero, but the physical appliances are still drawing power from the distribution transformer. The Master Feeder continues measuring this high physical draw, creating a substantial numerical deficit between the feeder measurement and the sum of consumer readings, exposing the bypass via Rule 3.
+## 19. Troubleshooting
 
----
+### Frontend Is Not Loading
 
-*Document compiled for academic presentation, software engineering review, and viva defense evaluation.*
+Check:
 
+```text
+http://localhost:3000
+```
+
+Verify Node and npm:
+
+```powershell
+node --version
+npm --version
+```
+
+### Backend Is Not Loading
+
+Verify Python and installed packages:
+
+```powershell
+python --version
+python -m pip show fastapi sqlmodel uvicorn
+```
+
+Restart:
+
+```powershell
+python -m uvicorn main:app --reload --port 8000
+```
+
+### Port 3000 Is Already Used
+
+Find the process:
+
+```powershell
+netstat -ano | findstr :3000
+```
+
+Stop the exact process by PID:
+
+```powershell
+Stop-Process -Id <PID>
+```
+
+Do not use a name-based process stop command.
+
+### Port 8000 Is Already Used
+
+```powershell
+netstat -ano | findstr :8000
+Stop-Process -Id <PID>
+```
+
+### SQL Database Is Locked
+
+- Confirm only one backend server is running
+- Stop duplicate Uvicorn processes
+- Check for stale SHM or WAL files
+- Restart the backend
+- Pause OneDrive synchronization if the project is inside a OneDrive folder
+
+Do not delete WAL or SHM files while the backend process is running.
+
+### Standalone Tab Does Not Load
+
+Verify the copied file exists in:
+
+```text
+frontend/public
+```
+
+Confirm the route:
+
+```text
+http://localhost:3000/defense-engine.html
+http://localhost:3000/smart-grid.html
+http://localhost:3000/dos_attack.html
+http://localhost:3000/replay-attack.html
+http://localhost:3000/coordinated-fdi.html
+```
+
+## 20. Testing Checklist
+
+### Backend
+
+- Root endpoint returns status `online`
+- Swagger loads
+- Six meters are seeded
+- One new simulation tick occurs each second
+- Simulated time advances
+- Telemetry history is returned
+- Active attacks are visible
+- Alerts are stored
+- Reset clears telemetry and alerts
+
+### Frontend
+
+- Vite starts on port 3000
+- The project loads without TypeScript build errors
+- Defense Engine loads as the default tab
+- Smart Grid Lab loads
+- DoS Attack loads
+- Replay Attack loads
+- Coordinated FDI loads
+- Iframes resize within the project window
+
+### Detection
+
+- Tamper creates a critical alert
+- FDI creates a physics inconsistency warning
+- Bypass creates a feeder imbalance alert
+- Stopping attacks restores normal telemetry
+- Reset removes stale database records
+
+## 21. Viva and Presentation Questions
+
+### What is the purpose of the project?
+
+The project demonstrates smart-meter electricity theft and cyber-attack detection using telemetry, physical equations, feeder balance, and security concepts.
+
+### What is ground truth?
+
+Ground truth is the simulated physical reality. It represents actual load and consumption. It is not the compromised meter report.
+
+### What is false data injection?
+
+False data injection changes transmitted meter values. In this project, reported active power is reduced while voltage and current remain unchanged.
+
+### Why does FDI trigger a physics inconsistency?
+
+The equation `P = V × I × PF` no longer holds because reported power does not match the reported voltage, current, and power factor.
+
+### What is a bypass attack?
+
+A bypass routes energy around the meter or causes the meter to report lower consumption. The feeder still detects real delivered power.
+
+### Why does feeder imbalance require three ticks?
+
+The three-tick rule reduces false alarms caused by temporary measurement or timing differences.
+
+### What is a replay attack?
+
+A replay attack sends a previously captured valid packet again instead of creating a new packet.
+
+### How can replay be detected?
+
+Replay can be detected through sequence numbers, freshness timestamps, and nonce or authentication checks.
+
+### What is DoS?
+
+Denial of service prevents telemetry or services from working normally, commonly through packet flooding or heartbeats that stop arriving.
+
+### What is coordinated FDI?
+
+Coordinated FDI modifies several meter reports consistently so that individual meters appear plausible while aggregate feeder information reveals the coordinated imbalance.
+
+### Which parts are backend-connected?
+
+The backend simulation, database, REST API, and WebSocket are connected. The standalone HTML pages are independent demonstrations.
+
+### What are the project limitations?
+
+- The project uses synthetic random loads
+- It does not use physical smart meters
+- It does not execute cryptographic operations in the backend
+- Replay, coordinated FDI, DoS, and the Defense Engine pages are browser simulations
+- Detection uses rule thresholds rather than machine learning
+- Database content persists until explicitly cleared or manually removed
+
+## 22. Possible Future Improvements
+
+- Connect replay and coordinated FDI pages to FastAPI
+- Add backend DoS and replay attack endpoints
+- Replace rule thresholds with explainable machine learning
+- Add authentication and signed telemetry
+- Use a real AMI dataset
+- Add MQTT or CoAP communication
+- Add Grafana or external monitoring
+- Deploy the backend with PostgreSQL or TimescaleDB
+- Add Docker Compose deployment
+- Add automated unit and integration tests
+- Add role-based authentication
+- Add a tamper event from real hardware
+- Add geographic or transformer-level visualization
+- Add exportable PDF or CSV incident reports
+
+## 23. Security and Safety Notes
+
+- This project is a simulation and is safe to use locally
+- Do not connect it directly to critical utility infrastructure
+- Do not reuse real credentials or utility account data
+- Use generated or test-only data
+- The standalone simulations should be used for academic demonstration only
+
+## 24. Final Summary
+
+The project is a complete educational smart-grid cyber-security laboratory. It separates:
+
+- Real physical behavior
+- Reported smart-meter behavior
+- Detection rules
+- Database persistence
+- Real-time display
+- Standalone attack education
+
+Its core principle is:
+
+```text
+Physical reality should agree with reported meter data and master-feeder data.
+If they disagree, the system generates evidence and an alert.
+```
